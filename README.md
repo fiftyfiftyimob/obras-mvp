@@ -7,14 +7,53 @@ Sistema completo para gestão de produção em obras de construção civil.
 
 ---
 
-## 🎯 Funcionalidades
+## ✅ Status dos Serviços
 
-- ✅ Gestão de obras, frentes, equipes e colaboradores
-- ✅ Distribuiçª£o diÃ¡ria de tarefas para pedreiros/ajudantes
-- ✅ Apontamento de produçª£o (inÃ¡cio, pausa, conclusÃ£o, impedimento)
-- ✅ Rastreamento GPS em tempo real
-- ✅ RDO automÃ¡tico (RelatÃ³rio DiÃ¡rio de Obra)
-- ✅ 3 perfis: Gestor, EstagiÃ¡rio, OperÃ¡rio
+| Serviço | Status | Link |
+|---------|--------|------|
+| **GitHub** | ✅ Pronto | https://github.com/fiftyfiftyimob/obras-mvp |
+| **Supabase** | ✅ Pronto | https://supabase.com/dashboard/project/mulgoijgvmizboyxmxmg |
+| **Vercel** | ⚠️ Conectar manual | https://vercel.com/new |
+
+---
+
+## 🔗 COMO CONECTAR VERCEL AO GITHUB (Passo a Passo)
+
+A Vercel precisa ser conectada manualmente ao repositÃ³rio GitHub. Siga estes passos:
+
+### Passo 1: Acesse a Vercel
+
+1. Vá¹¹ em: https://vercel.com/new
+2. Ou: https://vercel.com/dashboard
+
+### Passo 2: Importar Projeto GitHub
+
+1. Clique em **"Add New..."** → **"Project"**
+2. Na seção **"Import Git Repository"**, clique em **"GitHub"**
+3. Se for a primeira vez, **autorize a Vercel** a acessar seu GitHub
+4. Procure por **`fiftyfiftyimob/obras-mvp`** na lista
+5. Clique em **"Import"**
+
+### Passo 3: Configurar Root Directory
+
+1. Em **"Root Directory"**, clique em **"Edit"**
+2. Digite: `web`
+3. Isso diz à Vercel que o Next.js está na pasta `/web`
+
+### Passo 4: VariÃ¡veis de Ambiente
+
+Adicione estas variÃ¡veis em **"Environment Variables"**:
+
+```env
+API_URL=http://localhost:3000
+MAPBOX_TOKEN=
+```
+
+### Passo 5: Deploy
+
+1. Clique em **"Deploy"**
+2. Aguarde o build (leva ~2 minutos)
+3. Pronto! Seu site estarÃ¡ em: `https://obras-mvp-web.vercel.app`
 
 ---
 
@@ -73,23 +112,6 @@ cd obras-mvp
 
 ---
 
-### 3. Web (Next.js) - Vercel ⚠️
-
-**Projeto:** `obras-mvp` (ID: `prj_3p5YDzt1BsRwt2wkH18ZG6he1H2X`)
-
-**Dashboard:** https://vercel.com/dashboard
-
-⚠️ **PRECISA VINCULAR AO GITHUB:**
-
-1. Acesse https://vercel.com/dashboard
-2. Clique no projeto `obras-mvp`
-3. VÃ¡ em **Git** → **Connect Git Repository**
-4. Selecione `fiftyfiftyimob/obras-mvp`
-5. Defina **Root Directory** como `web`
-6. Clique em **Deploy**
-
----
-
 ## 🛠️ Como Rodar Localmente
 
 ### Backend (NestJS)
@@ -108,13 +130,9 @@ echo 'JWT_SECRET="segredo123"' >> .env
 echo 'PORT=3000' >> .env
 
 # Editar .env e colocar sua senha real
-# (use nano, vim, ou bloco de notas)
 
 # Gerar Prisma
 npm run prisma:generate
-
-# Rodar migrations (opcional, jÃ¡ estÃ£o no banco)
-npm run prisma:migrate
 
 # Iniciar backend
 npm run start:dev
@@ -150,35 +168,6 @@ curl -X POST http://localhost:3000/auth/login \
 
 ---
 
-### Mobile (Flutter) - Em Desenvolvimento
-
-```bash
-cd mobile
-flutter create .
-flutter pub get
-flutter run
-```
-
-No arquivo `lib/api_service.dart`, mude:
-
-```dart
-static const String baseUrl = 'http://SEU_IP:3000';
-```
-
----
-
-### Web (Next.js)
-
-```bash
-cd web
-npm install
-npm run dev
-```
-
-Acesse: `http://localhost:3001`
-
----
-
 ## 📁 Estrutura do Projeto
 
 ```
@@ -203,27 +192,22 @@ obras-mvp/
 ## 🔗 Links Úteis
 
 - **GitHub:** https://github.com/fiftyfiftyimob/obras-mvp
-- **Supabase Dashboard:** https://supabase.com/dashboard/project/mulgoijgvmizboyxmxmg
+- **Supabase Dashboard:** https://supabase.com/dashboard/project/mulgoijgvmizboyxmxmg/settings/database
+- **Vercel Deploy:** https://vercel.com/new
 - **Vercel Dashboard:** https://vercel.com/dashboard
 
 ---
 
-## 🚀 PrÃ³ximos Passos
+## ✅ Checklist
 
-1. ✅ Banco criado no Supabase
-2. ✅ CÃ³digo no GitHub
-3. ⚠️ Vincular Vercel ao GitHub (manual)
-4. ⚠️ Completar mobile (Flutter)
-5. ⚠️ Completar web (Next.js)
-
----
-
-## 📞 Suporte
-
-Se tiver dÃºvidas:
-1. Abra uma issue no GitHub
-2. Consulte a documentaÃ§Ã£o do Supabase
-3. Veja os logs no dashboard da Vercel
+- [x] Criar repositÃ³rio GitHub
+- [x] Subir cÃ³digo do backend
+- [x] Criar projeto Supabase
+- [x] Criar tabelas no banco
+- [x] Criar usuÃ¡rio de teste
+- [ ] Conectar Vercel ao GitHub (manual)
+- [ ] Deploy do web na Vercel
+- [ ] Completar mobile (Flutter)
 
 ---
 
