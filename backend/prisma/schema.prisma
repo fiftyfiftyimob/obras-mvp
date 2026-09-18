@@ -1,0 +1,274 @@
+// Prisma schema para o MVP de Gestão de Obras
+// CompatÃ¡vel com PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id           Int       @id @default(autoincrement())
+  nome         String
+  email        String?   @unique
+  telefone     String    @unique
+  senhaHash    String    @map("senha_hash")
+  perfil       String    // 'gestor' | 'estagiario' | 'operario'
+  ativo        Boolean   @default(true)
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime  @default(now()) @updatedAt @map("atualizado_em")
+
+  obrasResponsavel     Obra[]                @relation("ObraResponsavel")
+  compromissosCriados  CompromissoSemanal[]  @relation("CompromissoCriador")
+  tarefasCriadas       Tarefa[]              @relation("TarefaCriador")
+  evolucoesRegistradas EvolucaoTarefa[]      @relation("EvolucaoUsuario")
+  localizacoes         LocalizacaoPeriodica[]
+  rdosCriados          Rdo[]                 @relation("RdoCriador")
+
+  @@map("usuarios")
+}
+
+model Obra {
+  id             Int       @id @default(autoincrement())
+  nome           String
+  endereco       String?
+  cidade         String?
+  estado         String?
+  clienteNome    String?   @map("cliente_nome")
+  clienteContato String?   @map("cliente_contato")
+  responsavelId  Int?      @map("responsavel_id")
+  ativo          Boolean   @default(true)
+  criadoEm       DateTime  @default(now()) @map("criado_em")
+  atualizadoEm   DateTime  @default(now()) @updatedAt @map("atualizado_em")
+
+  responsavel    Usuario?          @relation("ObraResponsavel", fields: [responsavelId], references: [id])
+  frentes        Frente[]
+  equipes        Equipe[]
+  colaboradores  Colaborador[]
+  compromissos   CompromissoSemanal[]
+  tarefas        Tarefa[]
+  rdos           Rdo[]
+
+  @@map("obras")
+}
+
+model Frente {
+  id        Int      @id @default(autoincrement())
+  obraId    Int      @map("obra_id")
+  nome      String
+  nivel     Int      @default(0)
+  descricao String?
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  obra        Obra              @relation(fields: [obraId], references: [id])
+  compromissos CompromissoSemanal[]
+  tarefas     Tarefa[]
+  rdosItens   RdoItem[]
+
+  @@map("frentes")
+}
+
+model Servico {
+  id                     Int      @id @default(autoincrement())
+  nome                   String   @unique
+  unidade                String   // m2, m3, m, un, %
+  produtividadeReferencia Decimal? @map("produtividade_referencia")
+  descricao              String?
+  ativo                  Boolean  @default(true)
+  criadoEm               DateTime @default(now()) @map("criado_em")
+
+  compromissos CompromissoSemanal[]
+  tarefas      Tarefa[]
+  rdosItens    RdoItem[]
+
+  @@map("servicos")
+}
+
+model Equipe {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  obraId    Int?     @map("obra_id")
+  descricao String?
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  obra        Obra?       @relation(fields: [obraId], references: [id])
+  colaboradores EquipeColaborador[]
+  compromissos CompromissoSemanal[]
+  tarefas     Tarefa[]
+  rdosItens   RdoItem[]
+
+  @@map("equipes")
+}
+
+model Colaborador {
+  id                Int      @id @default(autoincrement())
+  nome              String
+  funcao            String
+  telefone          String?
+  cpf               String?
+  obraId            Int?     @map("obra_id")
+  equipePrincipalId Int?     @map("equipe_principal_id")
+  ativo             Boolean  @default(true)
+  criadoEm          DateTime @default(now()) @map("criado_em")
+  atualizadoEm      DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  obra        Obra?       @relation(fields: [obraId], references: [id])
+  equipePrincipal Equipe? @relation(fields: [equipePrincipalId], references: [id])
+  equipes     EquipeColaborador[]
+  tarefas     Tarefa[]
+  evolucoes   EvolucaoTarefa[]
+  localizacoes LocalizacaoPeriodica[]
+
+  @@map("colaboradores")
+}
+
+model EquipeColaborador {
+  id           Int      @id @default(autoincrement())
+  equipeId     Int      @map("equipe_id")
+  colaboradorId Int     @map("colaborador_id")
+  dataInicio   DateTime @map("data_inicio")
+  dataFim      DateTime? @map("data_fim")
+  ativo        Boolean  @default(true)
+
+  equipe      Equipe      @relation(fields: [equipeId], references: [id])
+  colaborador Colaborador @relation(fields: [colaboradorId], references: [id])
+
+  @@unique([equipeId, colaboradorId, dataInicio])
+  @@map("equipe_colaboradores")
+}
+
+model CompromissoSemanal {
+  id           Int      @id @default(autoincrement())
+  obraId       Int      @map("obra_id")
+  semanaInicio DateTime @map("semana_inicio")
+  semanaFim    DateTime @map("semana_fim")
+  servicoId    Int      @map("servico_id")
+  frenteId     Int      @map("frente_id")
+  equipeId     Int      @map("equipe_id")
+  quantidadeMeta Decimal @map("quantidade_meta")
+  unidade      String
+  diasPrevistos String? @map("dias_previstos")
+  observacao   String?
+  criadoPorId  Int?     @map("criado_por_id")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+
+  obra     Obra      @relation(fields: [obraId], references: [id])
+  servico  Servico   @relation(fields: [servicoId], references: [id])
+  frente   Frente    @relation(fields: [frenteId], references: [id])
+  equipe   Equipe    @relation(fields: [equipeId], references: [id])
+  criador  Usuario?  @relation("CompromissoCriador", fields: [criadoPorId], references: [id])
+  tarefas  Tarefa[]
+
+  @@map("compromissos_semanais")
+}
+
+model Tarefa {
+  id                 Int      @id @default(autoincrement())
+  obraId             Int      @map("obra_id")
+  compromissoSemanalId Int?   @map("compromisso_semanal_id")
+  servicoId          Int      @map("servico_id")
+  frenteId           Int      @map("frente_id")
+  equipeId           Int?     @map("equipe_id")
+  colaboradorId      Int?     @map("colaborador_id")
+  data               DateTime
+  turno              String?
+  quantidadeMeta     Decimal  @map("quantidade_meta")
+  unidade            String
+  status             String   @default("nao_iniciada")
+  observacao         String?
+  criadoPorId        Int?     @map("criado_por_id")
+  criadoEm           DateTime @default(now()) @map("criado_em")
+  atualizadoEm       DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  obra         Obra?            @relation(fields: [obraId], references: [id])
+  compromisso  CompromissoSemanal? @relation(fields: [compromissoSemanalId], references: [id])
+  servico      Servico          @relation(fields: [servicoId], references: [id])
+  frente       Frente           @relation(fields: [frenteId], references: [id])
+  equipe       Equipe?          @relation(fields: [equipeId], references: [id])
+  colaborador  Colaborador?     @relation(fields: [colaboradorId], references: [id])
+  criador      Usuario?         @relation("TarefaCriador", fields: [criadoPorId], references: [id])
+  evolucoes    EvolucaoTarefa[]
+  localizacoes LocalizacaoPeriodica[]
+
+  @@map("tarefas")
+}
+
+model EvolucaoTarefa {
+  id               Int      @id @default(autoincrement())
+  tarefaId         Int      @map("tarefa_id")
+  usuarioId        Int      @map("usuario_id")
+  colaboradorId    Int?     @map("colaborador_id")
+  tipo             String
+  timestamp        DateTime @default(now())
+  quantidadeRealizada Decimal? @map("quantidade_realizada")
+  fotoUrl          String?  @map("foto_url")
+  observacao       String?
+  motivoImpedimento String? @map("motivo_impedimento")
+  latitude         Decimal?
+  longitude        Decimal?
+  altitude         Decimal?
+
+  tarefa      Tarefa      @relation(fields: [tarefaId], references: [id])
+  usuario     Usuario     @relation("EvolucaoUsuario", fields: [usuarioId], references: [id])
+  colaborador Colaborador? @relation(fields: [colaboradorId], references: [id])
+
+  @@map("evolucoes_tarefa")
+}
+
+model LocalizacaoPeriodica {
+  id            Int      @id @default(autoincrement())
+  usuarioId     Int?     @map("usuario_id")
+  colaboradorId Int?     @map("colaborador_id")
+  tarefaId      Int?     @map("tarefa_id")
+  timestamp     DateTime @default(now())
+  latitude      Decimal
+  longitude     Decimal
+  altitude      Decimal?
+  precisaoMetros Decimal? @map("precisao_metros")
+
+  usuario     Usuario?     @relation(fields: [usuarioId], references: [id])
+  colaborador Colaborador? @relation(fields: [colaboradorId], references: [id])
+  tarefa      Tarefa?      @relation(fields: [tarefaId], references: [id])
+
+  @@map("localizacoes_periodicas")
+}
+
+model Rdo {
+  id             Int      @id @default(autoincrement())
+  obraId         Int      @map("obra_id")
+  data           DateTime
+  clima          String?
+  observacaoGeral String? @map("observacao_geral")
+  criadoPorId    Int?     @map("criado_por_id")
+  criadoEm       DateTime @default(now()) @map("criado_em")
+
+  obra    Obra      @relation(fields: [obraId], references: [id])
+  criador Usuario?  @relation("RdoCriador", fields: [criadoPorId], references: [id])
+  itens   RdoItem[]
+
+  @@unique([obraId, data])
+  @@map("rdos")
+}
+
+model RdoItem {
+  id                 Int      @id @default(autoincrement())
+  rdoId              Int      @map("rdo_id")
+  frenteId           Int      @map("frente_id")
+  servicoId          Int      @map("servico_id")
+  equipeId           Int?     @map("equipe_id")
+  quantidadeRealizada Decimal @map("quantidade_realizada")
+  unidade            String
+  observacao         String?
+
+  rdo       Rdo     @relation(fields: [rdoId], references: [id])
+  frente    Frente  @relation(fields: [frenteId], references: [id])
+  servico   Servico @relation(fields: [servicoId], references: [id])
+  equipe    Equipe? @relation(fields: [equipeId], references: [id])
+
+  @@map("rdos_itens")
+}
