@@ -1,0 +1,11 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+const apiUrl = String.fromEnvironment('API_URL', defaultValue: 'http://10.0.2.2:3000');
+void main() => runApp(const ObrasApp());
+
+class ObrasApp extends StatelessWidget { const ObrasApp({super.key}); @override Widget build(BuildContext context) => MaterialApp(debugShowCheckedModeBanner:false,title:'Obras MVP',theme:ThemeData(colorScheme:ColorScheme.fromSeed(seedColor:Colors.blue),useMaterial3:true),home:const LoginPage()); }
+class LoginPage extends StatefulWidget { const LoginPage({super.key}); @override State<LoginPage> createState()=>_LoginPageState(); }
+class _LoginPageState extends State<LoginPage>{final telefone=TextEditingController();final senha=TextEditingController();bool carregando=false;String erro='';Future<void> entrar()async{setState(()=>carregando=true);try{final r=await http.post(Uri.parse('$apiUrl/auth/login'),headers:{'Content-Type':'application/json'},body:jsonEncode({'telefone':telefone.text,'senha':senha.text}));if(r.statusCode>=200&&r.statusCode<300&&mounted)Navigator.pushReplacement(context,MaterialPageRoute(builder:(_)=>const TarefasPage()));else setState(()=>erro='Telefone ou senha inválidos');}catch(_){setState(()=>erro='Não foi possível conectar à API');}finally{if(mounted)setState(()=>carregando=false);}}@override Widget build(BuildContext c)=>Scaffold(body:Center(child:SingleChildScrollView(padding:const EdgeInsets.all(24),child:Column(children:[const Icon(Icons.construction,size:72,color:Colors.blue),const Text('Obras MVP',style:TextStyle(fontSize:30,fontWeight:FontWeight.bold)),TextField(controller:telefone,decoration:const InputDecoration(labelText:'Telefone')),TextField(controller:senha,obscureText:true,decoration:const InputDecoration(labelText:'Senha')),if(erro.isNotEmpty)Text(erro,style:const TextStyle(color:Colors.red)),const SizedBox(height:20),ElevatedButton(onPressed:carregando?null:entrar,child:Text(carregando?'Entrando...':'Entrar'))]))));}
+class TarefasPage extends StatelessWidget { const TarefasPage({super.key}); @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Minhas tarefas')),body:const Center(child:Text('Tarefas serão carregadas pela API.'))); }
