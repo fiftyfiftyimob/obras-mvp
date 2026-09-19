@@ -167,6 +167,45 @@ function Detail({ id }: { id: number }) {
       setBusy(false);
     }
   }
+  async function issueWorkerAccess(collaborator: Row) {
+    if (!collaborator.telefone)
+      return setError("Cadastre o telefone do colaborador antes de gerar o acesso.");
+    setBusy(true);
+    setError("");
+    try {
+      const { data: access, error } = await supabase.rpc(
+        "emitir_acesso_operario",
+        { p_colaborador: collaborator.id },
+      );
+      if (error) throw error;
+      const issued = access?.[0];
+      setNotice(
+        `Acesso de ${collaborator.nome} gerado. Código ${issued.codigo}, válido por 24 horas. A mensagem entrou na fila do WhatsApp.`,
+      );
+      await load();
+    } catch (e) {
+      setError(mensagemErro(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function disableWorkerAccess(channel: Row) {
+    if (!confirm("Desativar o acesso deste colaborador pelo WhatsApp?")) return;
+    setBusy(true);
+    setError("");
+    try {
+      const { error } = await supabase.rpc("desativar_acesso_operario", {
+        p_canal: channel.id,
+      });
+      if (error) throw error;
+      setNotice("Acesso pelo WhatsApp desativado.");
+      await load();
+    } catch (e) {
+      setError(mensagemErro(e));
+    } finally {
+      setBusy(false);
+    }
+  }
   async function saveEvent(row: Row) {
     if (!event) return;
     const { error } = await supabase.rpc("registrar_evolucao", {
@@ -256,6 +295,15 @@ function Detail({ id }: { id: number }) {
         [
           "Equipe principal",
           (r) => lookup(data, "equipes", r.equipe_principal_id),
+        ],
+        [
+          "WhatsApp",
+          (r) => {
+            const channel = data.canais_operario?.find(
+              (c) => c.colaborador_id === r.id && c.tipo === "whatsapp",
+            );
+            return channel ? labels[channel.status] || channel.status : "Sem acesso";
+          },
         ],
       ],
       equipes: [
@@ -347,6 +395,33 @@ function Detail({ id }: { id: number }) {
                 )}
                 <td>
                   {rowActions(table, r)}
+                  {table === "colaboradores" && canEdit && (
+                    <div className="row-actions">
+                      <button
+                        disabled={busy || !r.ativo}
+                        onClick={() => issueWorkerAccess(r)}
+                      >
+                        {data.canais_operario?.some(
+                          (c) => c.colaborador_id === r.id && c.status !== "inativo",
+                        )
+                          ? "Reemitir acesso"
+                          : "Gerar acesso"}
+                      </button>
+                      {data.canais_operario
+                        ?.filter(
+                          (c) => c.colaborador_id === r.id && c.status !== "inativo",
+                        )
+                        .map((channel) => (
+                          <button
+                            key={channel.id}
+                            disabled={busy}
+                            onClick={() => disableWorkerAccess(channel)}
+                          >
+                            Desativar WhatsApp
+                          </button>
+                        ))}
+                    </div>
+                  )}
                   {table === "rdos" && (
                     <button
                       className="secondary"
@@ -532,6 +607,7 @@ function Detail({ id }: { id: number }) {
                 tasks.filter(
                   (t) =>
                     t.status === "bloqueada" ||
+                    t.status === "aguardando_validacao" ||
                     (t.data < hoje() && t.status !== "concluida"),
                 ).length,
                 "Bloqueadas ou atrasadas",
@@ -729,6 +805,7 @@ function Detail({ id }: { id: number }) {
                   "em_execucao",
                   "pausada",
                   "bloqueada",
+                  "aguardando_validacao",
                   "concluida",
                 ].map((s) => (
                   <option key={s} value={s}>
@@ -812,6 +889,8 @@ function Detail({ id }: { id: number }) {
                           ? ["retomada", "impedimento"]
                           : t.status === "bloqueada"
                             ? ["retomada"]
+                            : t.status === "aguardando_validacao"
+                              ? ["conclusao", "retomada"]
                             : []
                     ).map((tipo) => (
                       <button
@@ -827,7 +906,11 @@ function Detail({ id }: { id: number }) {
                           window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
                       >
-                        {labels[tipo]}
+                        {t.status === "aguardando_validacao"
+                          ? tipo === "conclusao"
+                            ? "Aprovar conclusão"
+                            : "Reabrir tarefa"
+                          : labels[tipo]}
                       </button>
                     ))}
                   <button
@@ -846,29 +929,44 @@ function Detail({ id }: { id: number }) {
                   )}
                 </div>
                 {history === t.id && (
-                  <ul className="timeline">
-                    {events.length === 0 ? (
-                      <li>Nenhum evento registrado.</li>
-                    ) : (
-                      events.map((e) => (
-                        <li key={e.id}>
-                          <strong>{labels[e.tipo]}</strong>
-                          <small>
-                            {new Date(e.timestamp + "Z").toLocaleString(
-                              "pt-BR",
-                            )}
-                          </small>
-                          <span>
-                            Produção: {e.quantidade_realizada || 0} {t.unidade}
-                            {e.motivo_impedimento
-                              ? ` · ${labels[e.motivo_impedimento]}`
-                              : ""}
-                          </span>
-                          {e.observacao && <p>{e.observacao}</p>}
-                        </li>
-                      ))
-                    )}
-                  </ul>
+                  <>
+                    <ul className="timeline">
+                      {events.length === 0 ? (
+                        <li>Nenhum evento registrado.</li>
+                      ) : (
+                        events.map((e) => (
+                          <li key={e.id}>
+                            <strong>{labels[e.tipo] || e.tipo}</strong>
+                            <small>
+                              {new Date(e.timestamp + "Z").toLocaleString(
+                                "pt-BR",
+                              )}
+                            </small>
+                            <span>
+                              Produção: {e.quantidade_realizada || 0} {t.unidade}
+                              {e.motivo_impedimento
+                                ? ` · ${labels[e.motivo_impedimento]}`
+                                : ""}
+                            </span>
+                            {e.observacao && <p>{e.observacao}</p>}
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                    {data.evidencias_tarefa
+                      ?.filter((e) => e.tarefa_id === t.id)
+                      .map((e) => (
+                        <p className="notice" key={e.id}>
+                          Foto do operário · {new Date(e.criado_em).toLocaleString("pt-BR")}
+                          {e.legenda ? ` · ${e.legenda}` : ""}{" "}
+                          {e.url && (
+                            <a className="text-link-inline" href={e.url} target="_blank" rel="noreferrer">
+                              Abrir foto
+                            </a>
+                          )}
+                        </p>
+                      ))}
+                  </>
                 )}
               </article>
             ))
