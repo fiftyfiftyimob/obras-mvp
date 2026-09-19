@@ -34,7 +34,7 @@ begin
  select count(*) into n from public.rdos_itens;if n<>0 then raise exception 'FAIL: RDO vazado';end if;
  select count(*) into n from public.servicos where id=s;if n<>0 then raise exception 'FAIL: serviço privado vazado';end if;
  begin perform public.registrar_evolucao(t,'inicio');raise exception 'FAIL: ação em outra conta';exception when raise_exception then if SQLERRM='FAIL: ação em outra conta' then raise;end if;end;
- begin insert into public.frentes(nome,obra_id) values('Intrusão',a);raise exception 'FAIL: escrita em outra conta';exception when insufficient_privilege then null;end;
+ begin insert into public.frentes(nome,obra_id) values('Intrusão',a);raise exception 'FAIL: escrita em outra conta';exception when insufficient_privilege then null;when raise_exception then if SQLERRM='FAIL: escrita em outra conta' then raise;end if;end;
 end $$;
 reset role;
 select 'PASS: CRUD, isolamento de duas contas, vínculos, execução atômica e RDO' as resultado;

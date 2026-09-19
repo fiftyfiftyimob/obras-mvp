@@ -1,214 +1,57 @@
-# 🚀 Obras MVP - Sistema de Gestão de Produção em Obras
+# Obras — Gestão de produção
 
-Sistema completo para gestão de produção em obras de construção civil.
+Aplicação web em Next.js + Supabase Auth/PostgreSQL/RLS, publicada automaticamente pela Vercel a partir de `main`. Diretório raiz da Vercel: `web`.
 
-[![GitHub](https://img.shields.io/badge/GitHub-Repo-blue)](https://github.com/fiftyfiftyimob/obras-mvp)
-[![Supabase](https://img.shields.io/badge/Supabase-DB-green)](https://supabase.com/dashboard/project/mulgoijgvmizboyxmxmg)
+Produção: https://web-indol-rho-95.vercel.app
 
----
+## Funcionalidades
 
-## ✅ Status dos Serviços
+- Cadastro por e-mail, login, sessão, saída e telas de recuperação de senha.
+- Obras e frentes: cadastro, edição, arquivamento e restauração.
+- Colaboradores, equipes e composição de equipes com datas de início/fim.
+- Catálogo padrão de serviços (somente leitura) e catálogo privado por gestor.
+- Compromissos semanais com metas e tarefas diárias atribuídas a equipe ou pessoa.
+- Execução atômica: início, pausa, retomada, impedimento e conclusão; produção incremental e histórico imutável.
+- Indicadores por serviço: metas, produção, horas previstas/reais, tarefas atrasadas e bloqueadas.
+- RDO com clima, observação geral, itens executados e impressão.
 
-| Serviço | Status | Link |
-|---------|--------|------|
-| **GitHub** | ✅ Pronto | https://github.com/fiftyfiftyimob/obras-mvp |
-| **Supabase** | ✅ Pronto | https://supabase.com/dashboard/project/mulgoijgvmizboyxmxmg |
-| **Vercel** | ⚠️ Conectar manual | https://vercel.com/new |
+## Desenvolvimento
 
----
+Requer Node.js 22 ou superior.
 
-## 🔗 COMO CONECTAR VERCEL AO GITHUB (Passo a Passo)
-
-A Vercel precisa ser conectada manualmente ao repositÃ³rio GitHub. Siga estes passos:
-
-### Passo 1: Acesse a Vercel
-
-1. Vá¹¹ em: https://vercel.com/new
-2. Ou: https://vercel.com/dashboard
-
-### Passo 2: Importar Projeto GitHub
-
-1. Clique em **"Add New..."** → **"Project"**
-2. Na seção **"Import Git Repository"**, clique em **"GitHub"**
-3. Se for a primeira vez, **autorize a Vercel** a acessar seu GitHub
-4. Procure por **`fiftyfiftyimob/obras-mvp`** na lista
-5. Clique em **"Import"**
-
-### Passo 3: Configurar Root Directory
-
-1. Em **"Root Directory"**, clique em **"Edit"**
-2. Digite: `web`
-3. Isso diz à Vercel que o Next.js está na pasta `/web`
-
-### Passo 4: VariÃ¡veis de Ambiente
-
-Adicione estas variÃ¡veis em **"Environment Variables"**:
-
-```env
-API_URL=http://localhost:3000
-MAPBOX_TOKEN=
+```sh
+cd web
+npm ci
+npm run dev
 ```
 
-### Passo 5: Deploy
+`npm run build` compila e verifica TypeScript. Copie `.env.example` para `.env.local` se precisar substituir o projeto. Os valores padrão de `web/lib/supabase.ts` são identificadores **públicos** deste projeto e garantem que o site funcione sem depender de variáveis ausentes na Vercel. Nunca incluir chaves secretas/service_role no frontend.
 
-1. Clique em **"Deploy"**
-2. Aguarde o build (leva ~2 minutos)
-3. Pronto! Seu site estarÃ¡ em: `https://obras-mvp-web.vercel.app`
+## Autenticação em produção
 
----
+No Supabase Auth → URL Configuration, conferir:
 
-## 📦 Serviços Configurados
+- Site URL: `https://web-indol-rho-95.vercel.app`
+- Redirect URLs: `https://web-indol-rho-95.vercel.app/obras` e `https://web-indol-rho-95.vercel.app/nova-senha`
 
-### 1. Banco de Dados - Supabase ✅
+Confirmação e recuperação dependem do envio de e-mail configurado no Supabase. O SMTP padrão tem restrições; configure SMTP próprio para cadastro público. Não desative confirmação para contornar erros de envio.
 
-**Projeto:** `obras-mvp`
+## Banco e segurança
 
-- **URL do Projeto:** https://supabase.com/dashboard/project/mulgoijgvmizboyxmxmg
-- **Database Host:** `db.mulgoijgvmizboyxmxmg.supabase.co`
-- **Pooler Host:** `aws-0-sa-east-1.pooler.supabase.com`
-- **Porta:** `6543`
-- **Database:** `postgres`
-- **UsuÃ¡rio:** `postgres`
+`supabase/migrations` contém as migrações efetivamente aplicadas, incluindo o schema inicial e a migração anterior de Auth. Os timestamps correspondem ao histórico remoto. Não reaplicar scripts manualmente em produção.
 
-**🔑 COMO PEGAR A SENHA:**
+- Todas as tabelas públicas têm RLS. `usuarios` legado e `localizacoes_periodicas` têm acesso de clientes revogado; ausência de políticas nessas duas tabelas é intencional.
+- Os demais registros são isolados pelo proprietário da obra. Serviços padrão não possuem dono e são somente leitura; serviços privados pertencem ao gestor.
+- Triggers impedem transferir registros, falsificar autoria e vincular registros de obras diferentes.
+- Eventos são inseridos por uma função atômica com bloqueio de tarefa e verificação explícita do proprietário. O cliente não recebe permissão para editar status diretamente nem alterar eventos passados.
+- Não há exclusão física pelo aplicativo; cadastros usam arquivamento.
+- A obra antiga sem `dono_id` foi preservada e não foi atribuída a uma conta arbitrariamente.
+- A unidade de serviços utilizados e o planejamento de tarefas iniciadas são protegidos contra alteração.
 
-1. Acesse: https://supabase.com/dashboard/project/mulgoijgvmizboyxmxmg/settings/database
-2. Procure por **"Database password"**
-3. Clique em **"Reset Database Password"**
-4. **Copie a senha** que aparecer (só¹¹¹ aparece uma vez!)
-5. Salve em algum lugar seguro
+Teste de integração SQL (executar em conexão administrativa): `supabase/tests/isolation.sql`. Usa duas identidades temporárias, valida CRUD/isolamento/relações/execução/RDO e faz rollback. Não há credenciais reais no teste.
 
-**Connection String (substitua [SUA_SENHA]):**
+## Legado e limites
 
-```
-postgresql://postgres:[SUA_SENHA]@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
-```
+`backend/` é referência NestJS/Prisma. Seus módulos antigos de autenticação, usuários, obras e frentes foram retirados do AppModule; um deploy desse commit deixa apenas o health check. A aplicação web não utiliza Render. A disponibilidade e publicação do serviço Render precisam ser verificadas separadamente caso continue ativo.
 
-**Tabelas Criadas:** ✅
-- `usuarios`, `obras`, `frentes`, `servicos`, `equipes`, `colaboradores`
-- `compromissos_semanais`, `tarefas`, `evolucoes_tarefa`
-- `localizacoes_periodicas`, `rdos`, `rdos_itens`
-
-**UsuÃ¡rio de Teste Criado:** ✅
-- **Telefone:** `11999999999`
-- **Senha:** `senha123`
-- **Perfil:** Gestor
-
----
-
-### 2. Código - GitHub ✅
-
-**RepositÃ³rio:** https://github.com/fiftyfiftyimob/obras-mvp
-
-```bash
-git clone https://github.com/fiftyfiftyimob/obras-mvp.git
-cd obras-mvp
-```
-
-**ConteÃºdo:**
-- ✅ Backend (NestJS + Prisma)
-- ✅ Schema do banco
-- ✅ README com instruÃ§Ãµes
-
----
-
-## 🛠️ Como Rodar Localmente
-
-### Backend (NestJS)
-
-```bash
-# Clonar e entrar na pasta
-git clone https://github.com/fiftyfiftyimob/obras-mvp.git
-cd obras-mvp/backend
-
-# Instalar dependÃªncias
-npm install
-
-# Criar arquivo .env
-echo 'DATABASE_URL="postgresql://postgres:[SUA_SENHA]@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true"' > .env
-echo 'JWT_SECRET="segredo123"' >> .env
-echo 'PORT=3000' >> .env
-
-# Editar .env e colocar sua senha real
-
-# Gerar Prisma
-npm run prisma:generate
-
-# Iniciar backend
-npm run start:dev
-```
-
-**Backend rodando em:** `http://localhost:3000`
-
----
-
-### Testar API
-
-**Login:**
-
-```bash
-curl -X POST http://localhost:3000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"telefone":"11999999999","senha":"senha123"}'
-```
-
-**Resposta:**
-
-```json
-{
-  "access_token": "eyJhbGc...",
-  "usuario": {
-    "id": 1,
-    "nome": "Engenheiro Teste",
-    "telefone": "11999999999",
-    "perfil": "gestor"
-  }
-}
-```
-
----
-
-## 📁 Estrutura do Projeto
-
-```
-obras-mvp/
-├─ backend/           # NestJS + Prisma
-│  ├─ src/
-│  │  ├─ auth/
-│  │  ├─ usuarios/
-│  │  ├─ obras/
-│  │  └─ ...
-│  ├─ prisma/
-│  │  └─ schema.prisma
-│  ├─ .env.example
-│  └─ package.json
-├─ mobile/            # Flutter (em desenvolvimento)
-├─ web/               # Next.js (em desenvolvimento)
-└─ README.md
-```
-
----
-
-## 🔗 Links Úteis
-
-- **GitHub:** https://github.com/fiftyfiftyimob/obras-mvp
-- **Supabase Dashboard:** https://supabase.com/dashboard/project/mulgoijgvmizboyxmxmg/settings/database
-- **Vercel Deploy:** https://vercel.com/new
-- **Vercel Dashboard:** https://vercel.com/dashboard
-
----
-
-## ✅ Checklist
-
-- [x] Criar repositÃ³rio GitHub
-- [x] Subir cÃ³digo do backend
-- [x] Criar projeto Supabase
-- [x] Criar tabelas no banco
-- [x] Criar usuÃ¡rio de teste
-- [ ] Conectar Vercel ao GitHub (manual)
-- [ ] Deploy do web na Vercel
-- [ ] Completar mobile (Flutter)
-
----
-
-**Desenvolvido por Leandro Antolini - 2026**
+`mobile/` contém apenas o protótipo Flutter antigo, ainda não migrado. Fotos, anexos, GPS, offline, Realtime e integrações ficam para etapas futuras. RDO é preenchido pelo gestor; não importa automaticamente os apontamentos. Indicadores de horas usam intervalos de execução da tarefa, não homem-hora.
