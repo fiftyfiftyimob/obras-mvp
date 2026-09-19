@@ -574,6 +574,11 @@ td strong {
   color: var(--green);
   margin-top: 16px;
 }
+.text-link-inline {
+  color: var(--green);
+  font-weight: 700;
+  text-decoration: underline;
+}
 .stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
