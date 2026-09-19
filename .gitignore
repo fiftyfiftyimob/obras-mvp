@@ -6,3 +6,6 @@ node_modules/
 *.tsbuildinfo
 .vercel/
 supabase/.temp/
+whatsapp-bridge/.env
+whatsapp-bridge/.wwebjs_auth/
+whatsapp-bridge/.wwebjs_cache/

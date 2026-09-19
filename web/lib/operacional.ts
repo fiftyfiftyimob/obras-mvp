@@ -1,16 +1,23 @@
 import { supabase } from "./supabase";
 import type { Row, Field } from "../components/editor";
 export const labels: Record<string, string> = {
+  pendente: "Pendente",
+  ativo: "Ativo",
+  inativo: "Inativo",
+  bloqueado: "Bloqueado",
   nao_iniciada: "Não iniciada",
   em_execucao: "Em execução",
   pausada: "Pausada",
   bloqueada: "Bloqueada",
+  aguardando_validacao: "Aguardando validação",
   concluida: "Concluída",
   inicio: "Início",
   pausa: "Pausa",
   retomada: "Retomada",
   conclusao: "Conclusão",
   impedimento: "Impedimento",
+  producao: "Produção",
+  solicitacao_conclusao: "Conclusão solicitada",
   falta_material: "Falta de material",
   falta_ferramenta: "Falta de ferramenta",
   frente_ocupada: "Frente ocupada",
@@ -260,13 +267,38 @@ export async function loadData(obra: number): Promise<Data> {
         .eq("rdos.obra_id", obra)
         .order("id"),
     ),
+    allRows(() =>
+      supabase
+        .from("canais_operario")
+        .select("*")
+        .eq("obra_id", obra)
+        .order("id"),
+    ),
+    allRows(() =>
+      supabase
+        .from("evidencias_tarefa")
+        .select("*,tarefas!inner(obra_id)")
+        .eq("tarefas.obra_id", obra)
+        .order("criado_em")
+        .order("id"),
+    ),
   ]);
   [
     "servicos",
     "equipe_colaboradores",
     "evolucoes_tarefa",
     "rdos_itens",
+    "canais_operario",
+    "evidencias_tarefa",
   ].forEach((t, i) => (data[t] = extra[i]));
+  data.evidencias_tarefa = await Promise.all(
+    data.evidencias_tarefa.map(async (e) => {
+      const { data: signed } = await supabase.storage
+        .from("evidencias-tarefa")
+        .createSignedUrl(e.storage_path, 3600);
+      return { ...e, url: signed?.signedUrl || null };
+    }),
+  );
   return data;
 }
 export function progress(data: Data, task: Row) {
@@ -286,7 +318,12 @@ export function hours(data: Data, task: Row) {
         : e.timestamp + "Z",
     );
     if (e.tipo === "inicio" || e.tipo === "retomada") start = at;
-    else if (start !== null) {
+    else if (
+      start !== null &&
+      ["pausa", "conclusao", "impedimento", "solicitacao_conclusao"].includes(
+        e.tipo,
+      )
+    ) {
       ms += at - start;
       start = null;
     }
