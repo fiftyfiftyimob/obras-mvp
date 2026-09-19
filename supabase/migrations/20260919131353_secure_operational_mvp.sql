@@ -1,0 +1,185 @@
+-- Non-destructive migration of the existing MVP to Supabase Auth.
+create schema if not exists private;
+revoke all on schema private from public;
+grant usage on schema private to authenticated;
+revoke all on function public.handle_new_auth_user() from public, anon, authenticated;
+-- Legacy identities and GPS remain unavailable to clients.
+revoke all on all tables in schema public from anon, authenticated;
+revoke all on all sequences in schema public from anon, authenticated;
+alter table public.servicos add column dono_id uuid references auth.users(id);
+alter table public.servicos drop constraint if exists servicos_nome_key;
+create unique index servicos_dono_nome_idx on public.servicos(dono_id, lower(nome)) where dono_id is not null;
+create index servicos_dono_idx on public.servicos(dono_id);
+alter table public.evolucoes_tarefa alter column usuario_id drop not null;
+alter table public.compromissos_semanais add column autor_id uuid references auth.users(id) default auth.uid();
+alter table public.tarefas add column autor_id uuid references auth.users(id) default auth.uid();
+alter table public.evolucoes_tarefa add column autor_id uuid references auth.users(id) default auth.uid();
+alter table public.rdos add column autor_id uuid references auth.users(id) default auth.uid();
+alter table public.tarefas add column horas_previstas numeric check (horas_previstas >= 0);
+create or replace function private.possui_obra(obra integer) returns boolean
+language sql stable security invoker set search_path = '' as $$
+ select exists(select 1 from public.obras where id=obra and dono_id=(select auth.uid()));
+$$;
+grant execute on function private.possui_obra(integer) to authenticated;
+alter table public.usuarios enable row level security;
+alter table public.obras enable row level security;
+alter table public.frentes enable row level security;
+alter table public.perfis enable row level security;
+alter table public.servicos enable row level security;
+alter table public.equipes enable row level security;
+alter table public.colaboradores enable row level security;
+alter table public.equipe_colaboradores enable row level security;
+alter table public.compromissos_semanais enable row level security;
+alter table public.tarefas enable row level security;
+alter table public.evolucoes_tarefa enable row level security;
+alter table public.localizacoes_periodicas enable row level security;
+alter table public.rdos enable row level security;
+alter table public.rdos_itens enable row level security;
+grant select on public.obras to authenticated;
+grant insert on public.obras to authenticated;
+grant usage on sequence public.obras_id_seq to authenticated;
+grant update on public.obras to authenticated;
+grant select on public.frentes to authenticated;
+grant insert on public.frentes to authenticated;
+grant usage on sequence public.frentes_id_seq to authenticated;
+grant update on public.frentes to authenticated;
+grant select on public.perfis to authenticated;
+grant update on public.perfis to authenticated;
+grant select on public.servicos to authenticated;
+grant insert on public.servicos to authenticated;
+grant usage on sequence public.servicos_id_seq to authenticated;
+grant update on public.servicos to authenticated;
+grant select on public.equipes to authenticated;
+grant insert on public.equipes to authenticated;
+grant usage on sequence public.equipes_id_seq to authenticated;
+grant update on public.equipes to authenticated;
+grant select on public.colaboradores to authenticated;
+grant insert on public.colaboradores to authenticated;
+grant usage on sequence public.colaboradores_id_seq to authenticated;
+grant update on public.colaboradores to authenticated;
+grant select on public.equipe_colaboradores to authenticated;
+grant insert on public.equipe_colaboradores to authenticated;
+grant usage on sequence public.equipe_colaboradores_id_seq to authenticated;
+grant update on public.equipe_colaboradores to authenticated;
+grant select on public.compromissos_semanais to authenticated;
+grant insert on public.compromissos_semanais to authenticated;
+grant usage on sequence public.compromissos_semanais_id_seq to authenticated;
+grant update on public.compromissos_semanais to authenticated;
+grant select on public.tarefas to authenticated;
+grant insert on public.tarefas to authenticated;
+grant usage on sequence public.tarefas_id_seq to authenticated;
+grant select on public.evolucoes_tarefa to authenticated;
+grant select on public.rdos to authenticated;
+grant insert on public.rdos to authenticated;
+grant usage on sequence public.rdos_id_seq to authenticated;
+grant update on public.rdos to authenticated;
+grant select on public.rdos_itens to authenticated;
+grant insert on public.rdos_itens to authenticated;
+grant usage on sequence public.rdos_itens_id_seq to authenticated;
+grant update on public.rdos_itens to authenticated;
+grant update(nome,telefone) on public.perfis to authenticated;
+grant update(servico_id,frente_id,equipe_id,colaborador_id,compromisso_semanal_id,data,turno,quantidade_meta,unidade,observacao,horas_previstas) on public.tarefas to authenticated;
+create policy gestor_select on public.equipes for select to authenticated using (private.possui_obra(obra_id));
+create policy gestor_insert on public.equipes for insert to authenticated with check (private.possui_obra(obra_id));
+create policy gestor_update on public.equipes for update to authenticated using (private.possui_obra(obra_id)) with check (private.possui_obra(obra_id));
+create index if not exists equipes_obra_idx on public.equipes(obra_id);
+create policy gestor_select on public.colaboradores for select to authenticated using (private.possui_obra(obra_id));
+create policy gestor_insert on public.colaboradores for insert to authenticated with check (private.possui_obra(obra_id));
+create policy gestor_update on public.colaboradores for update to authenticated using (private.possui_obra(obra_id)) with check (private.possui_obra(obra_id));
+create index if not exists colaboradores_obra_idx on public.colaboradores(obra_id);
+create policy gestor_select on public.compromissos_semanais for select to authenticated using (private.possui_obra(obra_id));
+create policy gestor_insert on public.compromissos_semanais for insert to authenticated with check (private.possui_obra(obra_id));
+create policy gestor_update on public.compromissos_semanais for update to authenticated using (private.possui_obra(obra_id)) with check (private.possui_obra(obra_id));
+create index if not exists compromissos_semanais_obra_idx on public.compromissos_semanais(obra_id);
+create policy gestor_select on public.tarefas for select to authenticated using (private.possui_obra(obra_id));
+create policy gestor_insert on public.tarefas for insert to authenticated with check (private.possui_obra(obra_id));
+create policy gestor_update on public.tarefas for update to authenticated using (private.possui_obra(obra_id)) with check (private.possui_obra(obra_id));
+create index if not exists tarefas_obra_idx on public.tarefas(obra_id);
+create policy gestor_select on public.rdos for select to authenticated using (private.possui_obra(obra_id));
+create policy gestor_insert on public.rdos for insert to authenticated with check (private.possui_obra(obra_id));
+create policy gestor_update on public.rdos for update to authenticated using (private.possui_obra(obra_id)) with check (private.possui_obra(obra_id));
+create index if not exists rdos_obra_idx on public.rdos(obra_id);
+create policy servicos_select on public.servicos for select to authenticated using (dono_id is null or dono_id=(select auth.uid()));
+create policy servicos_insert on public.servicos for insert to authenticated with check (dono_id=(select auth.uid()));
+create policy servicos_update on public.servicos for update to authenticated using (dono_id=(select auth.uid())) with check (dono_id=(select auth.uid()));
+create policy membros_select on public.equipe_colaboradores for select to authenticated using (exists(select 1 from public.equipes e where e.id=equipe_id and private.possui_obra(e.obra_id)));
+create policy membros_insert on public.equipe_colaboradores for insert to authenticated with check (exists(select 1 from public.equipes e join public.colaboradores c on c.obra_id=e.obra_id where e.id=equipe_id and c.id=colaborador_id and private.possui_obra(e.obra_id)));
+create policy membros_update on public.equipe_colaboradores for update to authenticated using (exists(select 1 from public.equipes e where e.id=equipe_id and private.possui_obra(e.obra_id))) with check (exists(select 1 from public.equipes e join public.colaboradores c on c.obra_id=e.obra_id where e.id=equipe_id and c.id=colaborador_id and private.possui_obra(e.obra_id)));
+create policy evolucoes_select on public.evolucoes_tarefa for select to authenticated using (exists(select 1 from public.tarefas t where t.id=tarefa_id and private.possui_obra(t.obra_id)));
+create policy itens_select on public.rdos_itens for select to authenticated using (exists(select 1 from public.rdos r where r.id=rdo_id and private.possui_obra(r.obra_id)));
+create policy itens_insert on public.rdos_itens for insert to authenticated with check (exists(select 1 from public.rdos r where r.id=rdo_id and private.possui_obra(r.obra_id)));
+create policy itens_update on public.rdos_itens for update to authenticated using (exists(select 1 from public.rdos r where r.id=rdo_id and private.possui_obra(r.obra_id))) with check (exists(select 1 from public.rdos r where r.id=rdo_id and private.possui_obra(r.obra_id)));
+create index evolucoes_tarefa_tarefa_idx on public.evolucoes_tarefa(tarefa_id);
+create index rdos_itens_rdo_idx on public.rdos_itens(rdo_id);
+create index equipe_colaboradores_equipe_idx on public.equipe_colaboradores(equipe_id);
+
+-- Database enforcement: prevent cross-worksite links, spoofed authors and moving parents.
+create function private.validar_registro() returns trigger language plpgsql security invoker set search_path='' as $$
+declare j jsonb := to_jsonb(new); antigo jsonb; obra integer; ref integer; tabela text; campo text; v record;
+begin
+ if TG_OP='UPDATE' then
+  antigo:=to_jsonb(old);
+  foreach campo in array array['obra_id','dono_id','autor_id','rdo_id','equipe_id','colaborador_id'] loop
+   if campo in ('equipe_id','colaborador_id') and TG_TABLE_NAME <> 'equipe_colaboradores' then continue; end if;
+   if j ? campo and j->campo is distinct from antigo->campo then raise exception 'Não é permitido transferir este registro.'; end if;
+  end loop;
+ end if;
+ if TG_OP='INSERT' and j ? 'autor_id' and (j->>'autor_id')::uuid is distinct from auth.uid() then raise exception 'Autor inválido.'; end if;
+ if j ? 'criado_por_id' and j->>'criado_por_id' is not null and auth.uid() is not null then raise exception 'Use a conta atual para registrar autoria.'; end if;
+ if j ? 'atualizado_em' then new:=jsonb_populate_record(new,jsonb_build_object('atualizado_em',now())); end if;
+ obra:=(j->>'obra_id')::integer;
+ if TG_TABLE_NAME='rdos_itens' then select obra_id into obra from public.rdos where id=(j->>'rdo_id')::integer; end if;
+ if TG_TABLE_NAME in ('equipes','colaboradores') and obra is null then raise exception 'Selecione uma obra.'; end if;
+ if TG_TABLE_NAME='tarefas' and TG_OP='INSERT' and j->>'status'<>'nao_iniciada' then raise exception 'A tarefa deve começar como não iniciada.'; end if;
+ if TG_TABLE_NAME='tarefas' and j->>'equipe_id' is null and j->>'colaborador_id' is null then raise exception 'Selecione uma equipe ou colaborador.'; end if;
+ for v in select * from (values ('frente_id','frentes'),('equipe_id','equipes'),('equipe_principal_id','equipes'),('colaborador_id','colaboradores'),('compromisso_semanal_id','compromissos_semanais')) as x(c,t) loop
+  if j->>v.c is not null and obra is not null then
+   execute format('select obra_id from public.%I where id=$1',v.t) into ref using (j->>v.c)::integer;
+   if ref is distinct from obra then raise exception 'Os vínculos devem pertencer à mesma obra.'; end if;
+  end if;
+ end loop;
+ if j->>'servico_id' is not null and not exists(select 1 from public.servicos where id=(j->>'servico_id')::integer and (dono_id is null or dono_id=auth.uid()) and unidade=j->>'unidade') then raise exception 'Serviço ou unidade inválidos.'; end if;
+ if TG_TABLE_NAME='tarefas' and j->>'compromisso_semanal_id' is not null and not exists(select 1 from public.compromissos_semanais c where c.id=(j->>'compromisso_semanal_id')::integer and c.servico_id=(j->>'servico_id')::integer and c.frente_id=(j->>'frente_id')::integer and c.equipe_id=(j->>'equipe_id')::integer and (j->>'data')::date between c.semana_inicio and c.semana_fim) then raise exception 'A tarefa deve respeitar serviço, frente, equipe e período do compromisso.'; end if;
+ return new;
+end $$;
+create trigger validar_registro before insert or update on public.obras for each row execute function private.validar_registro();
+create trigger validar_registro before insert or update on public.frentes for each row execute function private.validar_registro();
+create trigger validar_registro before insert or update on public.servicos for each row execute function private.validar_registro();
+create trigger validar_registro before insert or update on public.equipes for each row execute function private.validar_registro();
+create trigger validar_registro before insert or update on public.colaboradores for each row execute function private.validar_registro();
+create trigger validar_registro before insert or update on public.equipe_colaboradores for each row execute function private.validar_registro();
+create trigger validar_registro before insert or update on public.compromissos_semanais for each row execute function private.validar_registro();
+create trigger validar_registro before insert or update on public.tarefas for each row execute function private.validar_registro();
+create trigger validar_registro before insert or update on public.rdos for each row execute function private.validar_registro();
+create trigger validar_registro before insert or update on public.rdos_itens for each row execute function private.validar_registro();
+alter table public.compromissos_semanais add constraint semana_valida check(semana_fim>=semana_inicio and quantidade_meta>0);
+alter table public.tarefas add constraint meta_positiva check(quantidade_meta>0);
+alter table public.rdos_itens add constraint quantidade_positiva check(quantidade_realizada>=0);
+alter table public.equipe_colaboradores add constraint periodo_valido check(data_fim is null or data_fim>=data_inicio);
+
+-- Atomic execution log. Client cannot modify or delete past events.
+create function private.registrar_evolucao(p_tarefa integer,p_tipo text,p_quantidade numeric,p_motivo text,p_observacao text)
+returns integer language plpgsql security definer set search_path='' as $$
+declare tarefa public.tarefas; novo_status text; evento integer;
+begin
+ select t.* into tarefa from public.tarefas t join public.obras o on o.id=t.obra_id where t.id=p_tarefa and o.dono_id=auth.uid() and o.ativo for update of t;
+ if not found then raise exception 'Tarefa não encontrada.'; end if;
+ if p_quantidade is null or p_quantidade<0 then raise exception 'Quantidade inválida.'; end if;
+ if p_tipo='inicio' and tarefa.status='nao_iniciada' then novo_status:='em_execucao';
+ elsif p_tipo='pausa' and tarefa.status='em_execucao' then novo_status:='pausada';
+ elsif p_tipo='retomada' and tarefa.status in ('pausada','bloqueada') then novo_status:='em_execucao';
+ elsif p_tipo='conclusao' and tarefa.status='em_execucao' then novo_status:='concluida';
+ elsif p_tipo='impedimento' and tarefa.status in ('nao_iniciada','em_execucao','pausada') then novo_status:='bloqueada';
+ else raise exception 'Esta ação não é permitida no estado atual da tarefa.'; end if;
+ if p_tipo='impedimento' and (p_motivo is null or p_motivo not in ('falta_material','falta_ferramenta','frente_ocupada','projeto_pendente','chuva','espera_equipe','seguranca','outro')) then raise exception 'Informe o motivo do impedimento.'; end if;
+ if p_tipo in ('inicio','retomada') and p_quantidade<>0 then raise exception 'Registre produção ao pausar, concluir ou informar impedimento.'; end if;
+ insert into public.evolucoes_tarefa(tarefa_id,autor_id,tipo,quantidade_realizada,motivo_impedimento,observacao) values(p_tarefa,auth.uid(),p_tipo,p_quantidade,case when p_tipo='impedimento' then p_motivo else null end,p_observacao) returning id into evento;
+ update public.tarefas set status=novo_status,atualizado_em=now() where id=p_tarefa;
+ return evento;
+end $$;
+revoke all on function private.registrar_evolucao(integer,text,numeric,text,text) from public;
+grant execute on function private.registrar_evolucao(integer,text,numeric,text,text) to authenticated;
+create function public.registrar_evolucao(p_tarefa integer,p_tipo text,p_quantidade numeric default 0,p_motivo text default null,p_observacao text default null) returns integer language sql security invoker set search_path='' as $$ select private.registrar_evolucao(p_tarefa,p_tipo,p_quantidade,p_motivo,p_observacao); $$;
+revoke all on function public.registrar_evolucao(integer,text,numeric,text,text) from public,anon;
+grant execute on function public.registrar_evolucao(integer,text,numeric,text,text) to authenticated;
+revoke all on function private.validar_registro() from public,anon,authenticated;

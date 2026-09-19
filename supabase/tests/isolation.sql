@@ -1,0 +1,41 @@
+begin;
+-- Test fixtures are rolled back; no real user or worksite is touched.
+insert into auth.users(id,email,raw_user_meta_data) values ('00000000-0000-4000-8000-0000000000a1','obras-test-a@example.invalid','{"nome":"Teste A"}'),('00000000-0000-4000-8000-0000000000b1','obras-test-b@example.invalid','{"nome":"Teste B"}');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-0000000000a1',true);
+do $$declare a integer; b integer; f integer; f2 integer; e integer; c integer; s integer; t integer; n integer; r integer;
+begin
+ insert into public.obras(nome,dono_id) values('Teste A',auth.uid()) returning id into a;
+ insert into public.obras(nome,dono_id) values('Outra obra A',auth.uid()) returning id into b;
+ insert into public.frentes(nome,obra_id) values('Frente',a) returning id into f;
+ insert into public.frentes(nome,obra_id) values('Outra frente',b) returning id into f2;
+ insert into public.equipes(nome,obra_id) values('Equipe',a) returning id into e;
+ insert into public.colaboradores(nome,funcao,obra_id,equipe_principal_id) values('Pessoa','Pedreiro',a,e) returning id into c;
+ insert into public.equipe_colaboradores(equipe_id,colaborador_id,data_inicio) values(e,c,current_date);
+ insert into public.servicos(nome,unidade,dono_id) values('Teste privado','m²',auth.uid()) returning id into s;
+ begin
+  insert into public.tarefas(obra_id,frente_id,equipe_id,servico_id,data,quantidade_meta,unidade) values(a,f2,e,s,current_date,10,'m²');
+  raise exception 'FAIL: vínculo entre obras aceito';
+ exception when raise_exception then if SQLERRM='FAIL: vínculo entre obras aceito' then raise; end if; end;
+ insert into public.tarefas(obra_id,frente_id,equipe_id,servico_id,data,quantidade_meta,unidade) values(a,f,e,s,current_date,10,'m²') returning id into t;
+ perform public.registrar_evolucao(t,'inicio');
+ perform public.registrar_evolucao(t,'pausa',3);
+ perform public.registrar_evolucao(t,'retomada');
+ perform public.registrar_evolucao(t,'conclusao',7);
+ select count(*) into n from public.tarefas where id=t and status='concluida';if n<>1 then raise exception 'FAIL: transição de estado';end if;
+ select sum(quantidade_realizada) into n from public.evolucoes_tarefa where tarefa_id=t;if n<>10 then raise exception 'FAIL: produção';end if;
+ begin perform public.registrar_evolucao(t,'inicio');raise exception 'FAIL: reinício aceito';exception when raise_exception then if SQLERRM='FAIL: reinício aceito' then raise;end if;end;
+ insert into public.rdos(obra_id,data,clima) values(a,current_date,'Ensolarado') returning id into r;
+ insert into public.rdos_itens(rdo_id,frente_id,servico_id,equipe_id,quantidade_realizada,unidade) values(r,f,s,e,10,'m²');
+ perform set_config('request.jwt.claim.sub','00000000-0000-4000-8000-0000000000b1',true);
+ select count(*) into n from public.obras;if n<>0 then raise exception 'FAIL: obras vazadas';end if;
+ select count(*) into n from public.tarefas;if n<>0 then raise exception 'FAIL: tarefas vazadas';end if;
+ select count(*) into n from public.evolucoes_tarefa;if n<>0 then raise exception 'FAIL: evoluções vazadas';end if;
+ select count(*) into n from public.rdos_itens;if n<>0 then raise exception 'FAIL: RDO vazado';end if;
+ select count(*) into n from public.servicos where id=s;if n<>0 then raise exception 'FAIL: serviço privado vazado';end if;
+ begin perform public.registrar_evolucao(t,'inicio');raise exception 'FAIL: ação em outra conta';exception when raise_exception then if SQLERRM='FAIL: ação em outra conta' then raise;end if;end;
+ begin insert into public.frentes(nome,obra_id) values('Intrusão',a);raise exception 'FAIL: escrita em outra conta';exception when insufficient_privilege then null;end;
+end $$;
+reset role;
+select 'PASS: CRUD, isolamento de duas contas, vínculos, execução atômica e RDO' as resultado;
+rollback;

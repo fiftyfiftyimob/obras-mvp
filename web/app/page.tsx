@@ -1,5 +1,5 @@
-import Link from 'next/link';
-
-export default function Home() {
-  return <><nav className="nav"><strong>Obras MVP</strong><div className="nav-links"><Link href="/login">Entrar</Link><Link href="/tarefas">Tarefas</Link></div></nav><main className="container"><div className="card"><h1>Gestão de produção em obras</h1><p>Organize equipes, distribua tarefas e acompanhe a execução.</p><Link className="button" href="/login">Acessar sistema</Link></div><div className="grid"><div className="card"><h2>Obras</h2><p>Cadastre e acompanhe suas obras.</p></div><div className="card"><h2>Tarefas</h2><p>Distribua e registre a evolução dos serviços.</p></div><div className="card"><h2>RDO</h2><p>Prepare o relatório diário de obra.</p></div></div></main></>;
-}
+'use client';
+import {useEffect} from 'react';
+import {useRouter} from 'next/navigation';
+import {supabase} from '../lib/supabase';
+export default function Page(){const router=useRouter();useEffect(()=>{supabase.auth.getSession().then(({data})=>router.replace(data.session?'/obras':'/login'));},[router]);return <main className="loading">Abrindo suas obras…</main>;}

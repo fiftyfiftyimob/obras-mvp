@@ -1,0 +1,17 @@
+'use client';
+import {useEffect,useState} from 'react';
+import Link from 'next/link';
+import {ArrowLeft,Plus,Layers3} from 'lucide-react';
+import Shell from './shell';
+import Editor,{Row,Field} from './editor';
+import {supabase,mensagemErro} from '../lib/supabase';
+function Detail({id}:{id:number}){const [obra,setObra]=useState<Row|null>(null);const [rows,setRows]=useState<Row[]>([]);const [error,setError]=useState('');const [loading,setLoading]=useState(true);const [editor,setEditor]=useState<Row|null>(null);
+ async function load(){const [o,f]=await Promise.all([supabase.from('obras').select('*').eq('id',id).single(),supabase.from('frentes').select('*').eq('obra_id',id).order('nivel').order('nome')]);if(o.error||f.error)setError('Obra indisponível ou acesso não permitido.');else{setObra(o.data);setRows(f.data||[]);}setLoading(false);}
+ useEffect(()=>{void load();},[id]);
+ const fields:Field[]=[{name:'nome',label:'Nome da frente',required:true},{name:'nivel',label:'Ordem / nível',type:'number',min:'0',required:true},{name:'descricao',label:'Descrição',type:'textarea'}];
+ async function save(row:Row){const r=editor?.id?await supabase.from('frentes').update(row).eq('id',editor.id).select().single():await supabase.from('frentes').insert({...row,obra_id:id}).select().single();if(r.error)throw r.error;await load();}
+ async function archive(row:Row){if(!confirm(`${row.ativo?'Arquivar':'Restaurar'} esta frente?`))return;const {error}=await supabase.from('frentes').update({ativo:!row.ativo}).eq('id',row.id).select().single();if(error)setError(mensagemErro(error));else await load();}
+ if(loading)return <p>Carregando obra…</p>;if(!obra)return <div className="empty"><h1>Obra indisponível</h1><p>{error}</p><Link href="/obras">Voltar para minhas obras</Link></div>;
+ return <><Link className="back" href="/obras"><ArrowLeft size={16}/> Todas as obras</Link><div className="page-heading"><div><p className="eyebrow">ESPAÇO DA OBRA</p><h1>{obra.nome}</h1><p className="muted">{[obra.endereco,obra.cidade,obra.estado].filter(Boolean).join(' · ')||'Local não informado'}</p></div><span className="pill">{obra.ativo?'Obra ativa':'Arquivada'}</span></div><nav className="tabs"><button className="active"><Layers3 size={16}/>Frentes de serviço</button></nav><div className="section-heading"><div><h2>Frentes de serviço</h2><p className="muted">Organize os espaços e as etapas de execução.</p></div>{obra.ativo&&<button className="primary" onClick={()=>setEditor({nivel:0})}><Plus size={17}/>Nova frente</button>}</div>{error&&<p className="alert error" role="alert">{error}</p>}{editor&&<Editor title={editor.id?'Editar frente':'Nova frente'} fields={fields} initial={editor} onSave={save} onCancel={()=>setEditor(null)}/>}{rows.length===0?<div className="empty"><Layers3 size={38}/><h2>Nenhuma frente cadastrada</h2><p>Separe sua obra em áreas, etapas ou setores.</p></div>:<div className="panel table-wrap"><table><thead><tr><th>Frente</th><th>Nível</th><th>Descrição</th><th>Status</th><th>Ações</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}><td><strong>{r.nome}</strong></td><td>{r.nivel}</td><td>{r.descricao||'—'}</td><td><span className="status">{r.ativo?'Ativa':'Arquivada'}</span></td><td>{obra.ativo&&<div className="row-actions"><button onClick={()=>setEditor(r)}>Editar</button><button onClick={()=>archive(r)}>{r.ativo?'Arquivar':'Restaurar'}</button></div>}</td></tr>)}</tbody></table></div>}</>;
+}
+export default function WorkDetail({id}:{id:number}){return <Shell><Detail id={id}/></Shell>;}

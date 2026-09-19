@@ -9,10 +9,6 @@ import { FrentesModule } from './frentes/frentes.module';
 @Module({
   imports: [
     PrismaModule,
-    UsuariosModule,
-    AuthModule,
-    ObrasModule,
-    FrentesModule,
   ],
   controllers: [AppController],
   providers: [],
