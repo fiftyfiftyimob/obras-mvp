@@ -169,6 +169,41 @@ small {
   padding: 42px 32px;
   min-height: calc(100vh - 145px);
 }
+.whatsapp-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.connection-title,
+.qr-box {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.qr-box {
+  margin: 24px 0;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+.qr-box img {
+  width: 220px;
+  height: 220px;
+  border-radius: 8px;
+}
+.queue-stats {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+}
+.queue-stats span {
+  display: flex;
+  justify-content: space-between;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line);
+}
 .page-heading {
   display: flex;
   align-items: center;
@@ -787,5 +822,17 @@ progress::-webkit-progress-value {
   .task-actions .secondary {
     font-size: 12px;
     padding: 9px 12px;
+  }
+  .whatsapp-layout {
+    grid-template-columns: 1fr;
+  }
+  .qr-box {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .qr-box img {
+    width: min(100%, 280px);
+    height: auto;
+    align-self: center;
   }
 }
