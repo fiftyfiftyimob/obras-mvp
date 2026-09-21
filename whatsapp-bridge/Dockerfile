@@ -11,6 +11,7 @@ WORKDIR /app
 COPY whatsapp-bridge/package.json whatsapp-bridge/package-lock.json ./
 ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 RUN npm ci --omit=dev \
+  && rm -rf "$PUPPETEER_CACHE_DIR" \
   && npx puppeteer browsers install chrome
 COPY whatsapp-bridge/src ./src
 
