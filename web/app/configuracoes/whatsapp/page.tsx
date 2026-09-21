@@ -67,8 +67,9 @@ export default function WhatsAppSettings() {
   }, [load]);
 
   async function wakeBridge() {
-    const url = process.env.NEXT_PUBLIC_WHATSAPP_BRIDGE_URL;
-    if (!url) return;
+    const url =
+      process.env.NEXT_PUBLIC_WHATSAPP_BRIDGE_URL ||
+      "https://obras-whatsapp.onrender.com";
     try {
       await fetch(url, { mode: "no-cors", cache: "no-store" });
     } catch {
