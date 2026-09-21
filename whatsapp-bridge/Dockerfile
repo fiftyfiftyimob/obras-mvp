@@ -12,9 +12,11 @@ COPY whatsapp-bridge/package.json whatsapp-bridge/package-lock.json ./
 ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 RUN npm ci --omit=dev \
   && rm -rf "$PUPPETEER_CACHE_DIR" \
-  && npx puppeteer browsers install chrome
+  && CHROME_PATH="$(npx puppeteer browsers install chrome --format '{{path}}')" \
+  && ln -s "$CHROME_PATH" /usr/local/bin/google-chrome
 COPY whatsapp-bridge/src ./src
 
 ENV NODE_ENV=production
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/google-chrome
 EXPOSE 3000
 CMD ["npm", "start"]
