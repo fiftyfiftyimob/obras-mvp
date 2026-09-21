@@ -12,6 +12,22 @@ export function createDatabase(url, serviceRoleKey) {
   }
 
   return {
+    integration: async () => {
+      const { data, error } = await supabase
+        .from("whatsapp_integracao")
+        .select("*")
+        .eq("id", 1)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    updateIntegration: async (changes) => {
+      const { error } = await supabase
+        .from("whatsapp_integracao")
+        .update({ ...changes, atualizado_em: new Date().toISOString() })
+        .eq("id", 1);
+      if (error) throw error;
+    },
     receive: (message) =>
       rpc("registrar_whatsapp_inbox", {
         p_provider_id: message.id,
@@ -21,14 +37,6 @@ export function createDatabase(url, serviceRoleKey) {
         p_possui_midia: message.hasMedia,
         p_metadados: message.metadata || {},
       }),
-    activate: async (phone, code) => {
-      const result = await rpc("ativar_canal_whatsapp", {
-        p_telefone: phone,
-        p_codigo: code,
-      });
-      if (!result?.ativado) throw new Error(result?.erro || "Não foi possível ativar o acesso.");
-      return result;
-    },
     listTasks: (channelId) =>
       rpc("listar_tarefas_whatsapp", { p_canal: channelId }),
     execute: (channelId, command) =>
@@ -42,6 +50,16 @@ export function createDatabase(url, serviceRoleKey) {
       }),
     session: (channelId) =>
       rpc("obter_sessao_whatsapp", { p_canal: channelId }),
+    updateSession: async (channelId, state, data = {}, taskId = null) => {
+      const { error } = await supabase.from("sessoes_operario").upsert({
+        canal_id: channelId,
+        tarefa_ativa_id: taskId,
+        estado: state,
+        dados: data,
+        atualizado_em: new Date().toISOString(),
+      });
+      if (error) throw error;
+    },
     saveEvidence: (channelId, taskId, providerId, path, mimeType, caption) =>
       rpc("registrar_evidencia_whatsapp", {
         p_canal: channelId,

@@ -180,9 +180,27 @@ function Detail({ id }: { id: number }) {
       if (error) throw error;
       const issued = access?.[0];
       setNotice(
-        `Acesso de ${collaborator.nome} gerado. Código ${issued.codigo}, válido por 24 horas. A mensagem entrou na fila do WhatsApp.`,
+        `WhatsApp de ${collaborator.nome} ativado no número ${issued.telefone_e164}. A mensagem de apresentação entrou na fila.`,
       );
       await load();
+    } catch (e) {
+      setError(mensagemErro(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function sendTaskToWhatsApp(task: Row) {
+    setBusy(true);
+    setError("");
+    try {
+      const { data: total, error } = await supabase.rpc(
+        "enviar_tarefa_whatsapp",
+        { p_tarefa: task.id },
+      );
+      if (error) throw error;
+      setNotice(
+        `Tarefa enviada pelo WhatsApp para ${total} ${total === 1 ? "operário" : "operários"}.`,
+      );
     } catch (e) {
       setError(mensagemErro(e));
     } finally {
@@ -404,8 +422,8 @@ function Detail({ id }: { id: number }) {
                         {data.canais_operario?.some(
                           (c) => c.colaborador_id === r.id && c.status !== "inativo",
                         )
-                          ? "Reemitir acesso"
-                          : "Gerar acesso"}
+                          ? "Atualizar WhatsApp"
+                          : "Ativar WhatsApp"}
                       </button>
                       {data.canais_operario
                         ?.filter(
@@ -880,6 +898,15 @@ function Detail({ id }: { id: number }) {
                 />
                 {t.observacao && <p className="muted">{t.observacao}</p>}
                 <div className="task-actions" style={{ marginTop: 20 }}>
+                  {canEdit && t.status !== "concluida" && (
+                    <button
+                      className="primary"
+                      disabled={busy}
+                      onClick={() => sendTaskToWhatsApp(t)}
+                    >
+                      Enviar pelo WhatsApp
+                    </button>
+                  )}
                   {canEdit &&
                     (t.status === "nao_iniciada"
                       ? ["inicio", "impedimento"]
