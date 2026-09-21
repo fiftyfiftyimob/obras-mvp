@@ -9,7 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 COPY whatsapp-bridge/package.json whatsapp-bridge/package-lock.json ./
-RUN npm ci --omit=dev
+ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
+RUN npm ci --omit=dev \
+  && npx puppeteer browsers install chrome
 COPY whatsapp-bridge/src ./src
 
 ENV NODE_ENV=production
