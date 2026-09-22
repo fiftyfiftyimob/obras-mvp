@@ -2,7 +2,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { HardHat, Building2, LogOut, MessageCircle } from "lucide-react";
+import { HardHat, Building2, LogOut } from "lucide-react";
 import { supabase, mensagemErro } from "../lib/supabase";
 export default function Shell({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -46,9 +46,6 @@ export default function Shell({ children }: { children: ReactNode }) {
         </Link>
         <Link className="top-link" href="/obras">
           <Building2 size={17} /> Minhas obras
-        </Link>
-        <Link className="top-link" href="/configuracoes/whatsapp">
-          <MessageCircle size={17} /> WhatsApp
         </Link>
         <div className="account">
           <span className="avatar">{name.charAt(0).toUpperCase()}</span>
