@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Shell from "./shell";
 import Editor, { Row, Field } from "./editor";
+import WhatsAppDispatch from "./whatsapp-dispatch";
 import { supabase, mensagemErro, hoje } from "../lib/supabase";
 import {
   Data,
@@ -33,7 +34,7 @@ const tabs = [
   ["equipes", "Equipes", Users],
   ["servicos", "Serviços", ClipboardList],
   ["compromissos_semanais", "Planejamento", CalendarDays],
-  ["tarefas", "Execução", ClipboardList],
+  ["tarefas", "Frentes do dia", ClipboardList],
   ["rdos", "Diário de obra", ClipboardList],
 ] as const;
 function Detail({ id }: { id: number }) {
@@ -49,6 +50,7 @@ function Detail({ id }: { id: number }) {
   );
   const [event, setEvent] = useState<{ task: Row; tipo: string } | null>(null);
   const [history, setHistory] = useState<number | null>(null);
+  const [dispatch, setDispatch] = useState<Row | null>(null);
   const [rdo, setRdo] = useState<number | null>(null);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -167,63 +169,6 @@ function Detail({ id }: { id: number }) {
       setBusy(false);
     }
   }
-  async function issueWorkerAccess(collaborator: Row) {
-    if (!collaborator.telefone)
-      return setError("Cadastre o telefone do colaborador antes de gerar o acesso.");
-    setBusy(true);
-    setError("");
-    try {
-      const { data: access, error } = await supabase.rpc(
-        "emitir_acesso_operario",
-        { p_colaborador: collaborator.id },
-      );
-      if (error) throw error;
-      const issued = access?.[0];
-      setNotice(
-        `WhatsApp de ${collaborator.nome} ativado no número ${issued.telefone_e164}. A mensagem de apresentação entrou na fila.`,
-      );
-      await load();
-    } catch (e) {
-      setError(mensagemErro(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function sendTaskToWhatsApp(task: Row) {
-    setBusy(true);
-    setError("");
-    try {
-      const { data: total, error } = await supabase.rpc(
-        "enviar_tarefa_whatsapp",
-        { p_tarefa: task.id },
-      );
-      if (error) throw error;
-      setNotice(
-        `Tarefa enviada pelo WhatsApp para ${total} ${total === 1 ? "operário" : "operários"}.`,
-      );
-    } catch (e) {
-      setError(mensagemErro(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function disableWorkerAccess(channel: Row) {
-    if (!confirm("Desativar o acesso deste colaborador pelo WhatsApp?")) return;
-    setBusy(true);
-    setError("");
-    try {
-      const { error } = await supabase.rpc("desativar_acesso_operario", {
-        p_canal: channel.id,
-      });
-      if (error) throw error;
-      setNotice("Acesso pelo WhatsApp desativado.");
-      await load();
-    } catch (e) {
-      setError(mensagemErro(e));
-    } finally {
-      setBusy(false);
-    }
-  }
   async function saveEvent(row: Row) {
     if (!event) return;
     const { error } = await supabase.rpc("registrar_evolucao", {
@@ -313,15 +258,6 @@ function Detail({ id }: { id: number }) {
         [
           "Equipe principal",
           (r) => lookup(data, "equipes", r.equipe_principal_id),
-        ],
-        [
-          "WhatsApp",
-          (r) => {
-            const channel = data.canais_operario?.find(
-              (c) => c.colaborador_id === r.id && c.tipo === "whatsapp",
-            );
-            return channel ? labels[channel.status] || channel.status : "Sem acesso";
-          },
         ],
       ],
       equipes: [
@@ -413,33 +349,6 @@ function Detail({ id }: { id: number }) {
                 )}
                 <td>
                   {rowActions(table, r)}
-                  {table === "colaboradores" && canEdit && (
-                    <div className="row-actions">
-                      <button
-                        disabled={busy || !r.ativo}
-                        onClick={() => issueWorkerAccess(r)}
-                      >
-                        {data.canais_operario?.some(
-                          (c) => c.colaborador_id === r.id && c.status !== "inativo",
-                        )
-                          ? "Atualizar WhatsApp"
-                          : "Ativar WhatsApp"}
-                      </button>
-                      {data.canais_operario
-                        ?.filter(
-                          (c) => c.colaborador_id === r.id && c.status !== "inativo",
-                        )
-                        .map((channel) => (
-                          <button
-                            key={channel.id}
-                            disabled={busy}
-                            onClick={() => disableWorkerAccess(channel)}
-                          >
-                            Desativar WhatsApp
-                          </button>
-                        ))}
-                    </div>
-                  )}
                   {table === "rdos" && (
                     <button
                       className="secondary"
@@ -494,6 +403,7 @@ function Detail({ id }: { id: number }) {
               setEditor(null);
               setEvent(null);
               setHistory(null);
+              setDispatch(null);
               setRdo(null);
               setShowArchived(false);
               setError("");
@@ -521,7 +431,7 @@ function Detail({ id }: { id: number }) {
             <h2>{rdoRow ? `Diário de ${date(rdoRow.data)}` : names[tab]}</h2>
             <p className="muted">
               {tab === "tarefas"
-                ? "Planeje o dia e registre cada avanço da equipe."
+                ? "Defina onde cada equipe trabalhará e prepare as mensagens do dia."
                 : tab === "equipes"
                   ? "Monte equipes e acompanhe a composição ao longo do tempo."
                   : tab === "servicos"
@@ -794,6 +704,15 @@ function Detail({ id }: { id: number }) {
       {tab === "compromissos_semanais" && renderTable(tab, data[tab])}
       {tab === "tarefas" && (
         <>
+          {dispatch && obra && (
+            <WhatsAppDispatch
+              key={dispatch.id}
+              task={dispatch}
+              data={data}
+              obraNome={obra.nome}
+              onClose={() => setDispatch(null)}
+            />
+          )}
           <div className="filters">
             <label>
               De
@@ -901,10 +820,13 @@ function Detail({ id }: { id: number }) {
                   {canEdit && t.status !== "concluida" && (
                     <button
                       className="primary"
-                      disabled={busy}
-                      onClick={() => sendTaskToWhatsApp(t)}
+                      onClick={() => {
+                        setDispatch(t);
+                        setNotice("");
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
                     >
-                      Enviar pelo WhatsApp
+                      Preparar mensagens
                     </button>
                   )}
                   {canEdit &&
