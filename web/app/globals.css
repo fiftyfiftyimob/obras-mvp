@@ -659,6 +659,48 @@ td strong {
   gap: 8px;
   flex-wrap: wrap;
 }
+.whatsapp-dispatch {
+  padding: 24px;
+  margin-bottom: 22px;
+  border: 1px solid #b8c89f;
+}
+.whatsapp-bulk-action {
+  align-items: center;
+  margin: 18px 0;
+}
+.whatsapp-bulk-action small {
+  max-width: 520px;
+}
+.whatsapp-recipient-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+.whatsapp-recipient {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+.whatsapp-recipient strong,
+.whatsapp-recipient small {
+  display: block;
+}
+.whatsapp-recipient small {
+  color: var(--muted);
+  margin-top: 4px;
+}
+.whatsapp-recipient a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  text-decoration: none;
+}
 .notice {
   font-size: 13px;
   padding: 14px 18px;
@@ -822,6 +864,13 @@ progress::-webkit-progress-value {
   .task-actions .secondary {
     font-size: 12px;
     padding: 9px 12px;
+  }
+  .whatsapp-recipient {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .whatsapp-recipient a {
+    justify-content: center;
   }
   .whatsapp-layout {
     grid-template-columns: 1fr;
