@@ -34,7 +34,7 @@ export const names: Record<string, string> = {
   equipes: "Equipes",
   servicos: "Serviços",
   compromissos_semanais: "Planejamento semanal",
-  tarefas: "Tarefas diárias",
+  tarefas: "Frentes e tarefas do dia",
   rdos: "Diário de obra",
   equipe_colaboradores: "Composição das equipes",
   rdos_itens: "Itens do diário",
@@ -269,13 +269,6 @@ export async function loadData(obra: number): Promise<Data> {
     ),
     allRows(() =>
       supabase
-        .from("canais_operario")
-        .select("*")
-        .eq("obra_id", obra)
-        .order("id"),
-    ),
-    allRows(() =>
-      supabase
         .from("evidencias_tarefa")
         .select("*,tarefas!inner(obra_id)")
         .eq("tarefas.obra_id", obra)
@@ -288,7 +281,6 @@ export async function loadData(obra: number): Promise<Data> {
     "equipe_colaboradores",
     "evolucoes_tarefa",
     "rdos_itens",
-    "canais_operario",
     "evidencias_tarefa",
   ].forEach((t, i) => (data[t] = extra[i]));
   data.evidencias_tarefa = await Promise.all(
