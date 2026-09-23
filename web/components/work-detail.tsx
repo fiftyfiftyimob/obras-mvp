@@ -127,6 +127,46 @@ function Detail({ id }: { id: number }) {
     setNotice("Registro salvo.");
     await load();
   }
+  async function createOption(
+    field: Field,
+    input: { nome: string; unidade?: string },
+  ) {
+    const table = field.quickCreate?.table;
+    if (!table) throw new Error("Este campo não permite cadastro rápido.");
+    const existing = (data[table] || []).find(
+      (row) => row.nome?.trim().toLowerCase() === input.nome.toLowerCase(),
+    );
+    if (existing) return { value: existing.id, label: existing.nome };
+
+    let payload: Row;
+    if (table === "frentes") {
+      const highestLevel = (data.frentes || []).reduce(
+        (highest, row) => Math.max(highest, Number(row.nivel || 0)),
+        0,
+      );
+      payload = { obra_id: id, nome: input.nome, nivel: highestLevel + 1 };
+    } else if (table === "equipes") {
+      payload = { obra_id: id, nome: input.nome };
+    } else {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Entre novamente.");
+      payload = {
+        dono_id: user.id,
+        nome: input.nome,
+        unidade: input.unidade || "un",
+      };
+    }
+
+    const result = await supabase.from(table).insert(payload).select().single();
+    if (result.error) throw result.error;
+    setData((current) => ({
+      ...current,
+      [table]: [...(current[table] || []), result.data],
+    }));
+    return { value: result.data.id, label: result.data.nome };
+  }
   async function archive(table: string, row: Row) {
     if (
       !confirm(
@@ -165,6 +205,42 @@ function Detail({ id }: { id: number }) {
       await load();
     } catch (e) {
       setError(mensagemErro(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function toggleRdoTask(task: Row, checked: boolean) {
+    if (!rdoRow) return;
+    setBusy(true);
+    setError("");
+    try {
+      if (checked) {
+        const executed = progress(data, task);
+        const { error } = await supabase.from("rdos_itens").insert({
+          rdo_id: rdoRow.id,
+          tarefa_id: task.id,
+          frente_id: task.frente_id,
+          servico_id: task.servico_id,
+          equipe_id: task.equipe_id || null,
+          quantidade_realizada:
+            executed > 0 ? executed : Number(task.quantidade_meta),
+          unidade: task.unidade,
+          observacao: task.observacao || null,
+        });
+        if (error) throw error;
+        setNotice("Tarefa incluída no Diário de obra.");
+      } else {
+        const { error } = await supabase
+          .from("rdos_itens")
+          .delete()
+          .eq("rdo_id", rdoRow.id)
+          .eq("tarefa_id", task.id);
+        if (error) throw error;
+        setNotice("Tarefa retirada do Diário de obra.");
+      }
+      await load();
+    } catch (cause) {
+      setError(mensagemErro(cause));
     } finally {
       setBusy(false);
     }
@@ -216,6 +292,12 @@ function Detail({ id }: { id: number }) {
       (!status || t.status === status),
   );
   const rdoRow = data.rdos?.find((r) => r.id === rdo);
+  const rdoItems = rdoRow
+    ? data.rdos_itens.filter((item) => item.rdo_id === rdoRow.id)
+    : [];
+  const rdoTasks = rdoRow
+    ? tasks.filter((task) => task.data === rdoRow.data)
+    : [];
   const events =
     history === null
       ? []
@@ -457,6 +539,7 @@ function Detail({ id }: { id: number }) {
           fields={fieldsFor(editor.table, data)}
           initial={editor.row}
           onSave={save}
+          onCreateOption={createOption}
           onCancel={() => setEditor(null)}
         />
       )}
@@ -947,13 +1030,64 @@ function Detail({ id }: { id: number }) {
             <p>Clima: {rdoRow.clima || "Não informado"}</p>
             <p>{rdoRow.observacao_geral || "Sem observação geral."}</p>
           </div>
+          <section className="panel editor">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">PREENCHIMENTO RÁPIDO</p>
+                <h2>Tarefas planejadas para este dia</h2>
+                <p className="muted">
+                  Marque as tarefas executadas. Os dados serão copiados para o
+                  diário e poderão ser editados abaixo.
+                </p>
+              </div>
+              <span className="status green">
+                {rdoItems.filter((item) => item.tarefa_id).length}/{rdoTasks.length} marcadas
+              </span>
+            </div>
+            <div className="rdo-checklist">
+              {rdoTasks.map((task) => {
+                const item = rdoItems.find(
+                  (candidate) => candidate.tarefa_id === task.id,
+                );
+                const suggested = progress(data, task) || Number(task.quantidade_meta);
+                return (
+                  <label className="rdo-check" key={task.id}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(item)}
+                      disabled={busy || !canEdit}
+                      onChange={(event) =>
+                        void toggleRdoTask(task, event.target.checked)
+                      }
+                    />
+                    <span>
+                      <strong>{lookup(data, "servicos", task.servico_id)}</strong>
+                      <small>
+                        {lookup(data, "frentes", task.frente_id)} · {task.equipe_id
+                          ? lookup(data, "equipes", task.equipe_id)
+                          : lookup(data, "colaboradores", task.colaborador_id)} ·{" "}
+                        {suggested} {task.unidade}
+                      </small>
+                    </span>
+                  </label>
+                );
+              })}
+              {rdoTasks.length === 0 && (
+                <p className="muted">
+                  Nenhuma tarefa foi planejada para esta data. Use “Adicionar
+                  item” para fazer um registro manual.
+                </p>
+              )}
+            </div>
+          </section>
           {renderTable(
             "rdos_itens",
-            data.rdos_itens.filter((r) => r.rdo_id === rdo),
+            rdoItems,
           )}
           <p className="notice">
-            Registre os itens executados neste dia. Os apontamentos das tarefas
-            permanecem disponíveis na aba Execução.
+            Ao marcar uma tarefa sem apontamento de produção, o sistema sugere a
+            meta planejada. Use “Editar” para corrigir a quantidade realmente
+            executada antes de imprimir o diário.
           </p>
         </>
       )}

@@ -391,6 +391,34 @@ small {
   gap: 18px;
   margin-bottom: 22px;
 }
+.form-field > label {
+  margin-bottom: 0;
+}
+.inline-link {
+  border: 0;
+  background: none;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 0 0;
+}
+.quick-create {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px dashed #bdc9b3;
+  border-radius: 9px;
+  background: #fafcf7;
+}
+.quick-create input,
+.quick-create select {
+  margin-top: 0;
+}
+.quick-create .task-actions {
+  grid-column: 1 / -1;
+}
 label {
   display: block;
   font-size: 13px;
@@ -712,6 +740,38 @@ td strong {
   padding: 22px;
   border-bottom: 1px solid var(--line);
 }
+.rdo-checklist {
+  display: grid;
+  gap: 10px;
+}
+.rdo-check {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+}
+.rdo-check:has(input:checked) {
+  border-color: #9fbd7e;
+  background: #f2f7ec;
+}
+.rdo-check input {
+  width: 19px;
+  height: 19px;
+  min-width: 19px;
+  margin: 0;
+  accent-color: var(--green);
+}
+.rdo-check strong,
+.rdo-check small {
+  display: block;
+}
+.rdo-check small {
+  margin-top: 4px;
+}
 @media (max-width: 1000px) {
   .work-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -752,6 +812,12 @@ td strong {
   .work-grid,
   .form-grid {
     grid-template-columns: 1fr;
+  }
+  .quick-create {
+    grid-template-columns: 1fr;
+  }
+  .quick-create .task-actions {
+    grid-column: auto;
   }
   .summary-strip {
     padding: 18px;

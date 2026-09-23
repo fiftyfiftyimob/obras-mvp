@@ -28,6 +28,41 @@ export const labels: Record<string, string> = {
   outro: "Outro",
 };
 export type Data = Record<string, Row[]>;
+const FRONT_PRESETS = [
+  "Térreo",
+  "1º andar",
+  "2º andar",
+  "3º andar",
+  "Cobertura",
+  "Fachada",
+  "Área externa",
+  "Garagem",
+  "Hall e circulação",
+];
+const TEAM_PRESETS = [
+  "Equipe de alvenaria",
+  "Equipe de estrutura",
+  "Equipe de pintura",
+  "Equipe elétrica",
+  "Equipe hidráulica",
+  "Equipe de acabamento",
+  "Equipe de limpeza",
+];
+const ROLE_PRESETS = [
+  "Mestre de obras",
+  "Encarregado",
+  "Pedreiro",
+  "Servente",
+  "Pintor",
+  "Eletricista",
+  "Encanador",
+  "Carpinteiro",
+  "Armador",
+  "Gesseiro",
+  "Azulejista",
+  "Operador de máquinas",
+  "Técnico de segurança",
+];
 export const names: Record<string, string> = {
   frentes: "Frentes de serviço",
   colaboradores: "Colaboradores",
@@ -58,6 +93,11 @@ export function date(value: string) {
     : "—";
 }
 export function fieldsFor(table: string, data: Data): Field[] {
+  const choices = (values: string[]) =>
+    Array.from(new Set(values.filter(Boolean))).map((value) => ({
+      value,
+      label: value,
+    }));
   const text = (name: string, label: string, required = false): Field => ({
     name,
     label,
@@ -68,7 +108,26 @@ export function fieldsFor(table: string, data: Data): Field[] {
     label: string,
     t: string,
     required = false,
-  ): Field => ({ name, label, options: options(data, t), required });
+    quickCreate = false,
+  ): Field => ({
+    name,
+    label,
+    options: options(data, t),
+    required,
+    quickCreate: quickCreate
+      ? {
+          table: t as "frentes" | "equipes" | "servicos",
+          label: `Nome de ${label.toLowerCase()}`,
+          placeholder:
+            t === "frentes"
+              ? "Ex.: 4º andar"
+              : t === "equipes"
+                ? "Ex.: Equipe de fachada"
+                : "Ex.: Instalação de esquadrias",
+          withUnit: t === "servicos",
+        }
+      : undefined,
+  });
   const qty: Field = {
     name: "quantidade_meta",
     label: "Quantidade meta",
@@ -85,7 +144,13 @@ export function fieldsFor(table: string, data: Data): Field[] {
   switch (table) {
     case "frentes":
       return [
-        text("nome", "Nome da frente", true),
+        {
+          name: "nome",
+          label: "Nome da frente",
+          required: true,
+          options: choices(FRONT_PRESETS),
+          allowCustom: true,
+        },
         {
           name: "nivel",
           label: "Ordem / nível",
@@ -98,14 +163,34 @@ export function fieldsFor(table: string, data: Data): Field[] {
     case "colaboradores":
       return [
         text("nome", "Nome completo", true),
-        text("funcao", "Função", true),
-        { name: "telefone", label: "Telefone", type: "tel" },
+        {
+          name: "funcao",
+          label: "Função",
+          required: true,
+          options: choices([
+            ...ROLE_PRESETS,
+            ...(data.colaboradores || []).map((row) => row.funcao),
+          ]),
+          allowCustom: true,
+        },
+        {
+          name: "telefone",
+          label: "Telefone do WhatsApp (com DDD)",
+          type: "tel",
+          required: true,
+        },
         text("cpf", "CPF (opcional)"),
         rel("equipe_principal_id", "Equipe principal", "equipes"),
       ];
     case "equipes":
       return [
-        text("nome", "Nome da equipe", true),
+        {
+          name: "nome",
+          label: "Nome da equipe",
+          required: true,
+          options: choices(TEAM_PRESETS),
+          allowCustom: true,
+        },
         { name: "descricao", label: "Descrição", type: "textarea" },
       ];
     case "equipe_colaboradores":
@@ -149,9 +234,9 @@ export function fieldsFor(table: string, data: Data): Field[] {
           type: "date",
           required: true,
         },
-        rel("servico_id", "Serviço", "servicos", true),
-        rel("frente_id", "Frente", "frentes", true),
-        rel("equipe_id", "Equipe", "equipes", true),
+        rel("servico_id", "Serviço", "servicos", true, true),
+        rel("frente_id", "Frente", "frentes", true, true),
+        rel("equipe_id", "Equipe", "equipes", true, true),
         qty,
         text("dias_previstos", "Dias previstos"),
         obs,
@@ -165,9 +250,9 @@ export function fieldsFor(table: string, data: Data): Field[] {
           "Compromisso semanal (opcional)",
           "compromissos_semanais",
         ),
-        rel("servico_id", "Serviço", "servicos", true),
-        rel("frente_id", "Frente", "frentes", true),
-        rel("equipe_id", "Equipe", "equipes"),
+        rel("servico_id", "Serviço", "servicos", true, true),
+        rel("frente_id", "Frente", "frentes", true, true),
+        rel("equipe_id", "Equipe", "equipes", false, true),
         rel("colaborador_id", "Colaborador", "colaboradores"),
         qty,
         {
@@ -197,9 +282,9 @@ export function fieldsFor(table: string, data: Data): Field[] {
       ];
     case "rdos_itens":
       return [
-        rel("frente_id", "Frente", "frentes", true),
-        rel("servico_id", "Serviço", "servicos", true),
-        rel("equipe_id", "Equipe", "equipes"),
+        rel("frente_id", "Frente", "frentes", true, true),
+        rel("servico_id", "Serviço", "servicos", true, true),
+        rel("equipe_id", "Equipe", "equipes", false, true),
         {
           name: "quantidade_realizada",
           label: "Quantidade executada",
