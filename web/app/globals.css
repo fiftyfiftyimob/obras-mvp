@@ -412,6 +412,10 @@ small {
   border-radius: 9px;
   background: #fafcf7;
 }
+.quick-create-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+}
 .quick-create input,
 .quick-create select {
   margin-top: 0;
@@ -471,6 +475,7 @@ textarea {
   font-size: 13px;
   margin-bottom: 26px;
 }
+.module-picker { display: none; }
 .tabs {
   display: flex;
   gap: 25px;
@@ -851,8 +856,65 @@ td strong {
   .auth-card h2 {
     font-size: 26px;
   }
+  .module-picker {
+    display: block;
+    margin-bottom: 22px;
+    font-weight: 700;
+  }
+  .module-picker select {
+    width: 100%;
+    margin-top: 8px;
+  }
   .tabs {
-    gap: 22px;
+    display: none;
+  }
+  .responsive-table {
+    overflow: visible;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+  .responsive-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+  .responsive-table table,
+  .responsive-table tbody,
+  .responsive-table tr,
+  .responsive-table td {
+    display: block;
+    width: 100%;
+  }
+  .responsive-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+  .responsive-table tr {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: white;
+  }
+  .responsive-table td {
+    display: grid;
+    grid-template-columns: minmax(90px, 36%) minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px 14px;
+    overflow-wrap: anywhere;
+  }
+  .responsive-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .responsive-table .row-actions {
+    flex-wrap: wrap;
   }
   .section-heading {
     align-items: flex-start;

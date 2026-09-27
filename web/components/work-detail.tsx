@@ -29,13 +29,13 @@ import {
 } from "../lib/operacional";
 const tabs = [
   ["resumo", "Visão geral", ChartNoAxesCombined],
+  ["compromissos_semanais", "Planejamento", CalendarDays],
+  ["tarefas", "Tarefas", ClipboardList],
+  ["rdos", "Diário de obra", ClipboardList],
   ["frentes", "Frentes", Layers3],
   ["colaboradores", "Pessoas", Users],
   ["equipes", "Equipes", Users],
   ["servicos", "Serviços", ClipboardList],
-  ["compromissos_semanais", "Planejamento", CalendarDays],
-  ["tarefas", "Frentes do dia", ClipboardList],
-  ["rdos", "Diário de obra", ClipboardList],
 ] as const;
 function Detail({ id }: { id: number }) {
   const [obra, setObra] = useState<Row | null>(null);
@@ -55,7 +55,9 @@ function Detail({ id }: { id: number }) {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [status, setStatus] = useState("");
+  const [attentionOnly, setAttentionOnly] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [formDirty, setFormDirty] = useState(false);
   const load = useCallback(async () => {
     try {
       setError("");
@@ -276,7 +278,25 @@ function Detail({ id }: { id: number }) {
     setNotice("Execução registrada no histórico.");
     await load();
   }
+  function discardForm() {
+    if (formDirty && !window.confirm("Descartar as alterações deste formulário?")) return false;
+    setFormDirty(false);
+    return true;
+  }
+  function changeTab(value: string) {
+    if (!discardForm()) return;
+    setTab(value);
+    setEditor(null);
+    setEvent(null);
+    setHistory(null);
+    setDispatch(null);
+    setRdo(null);
+    setShowArchived(false);
+    setError("");
+    setNotice("");
+  }
   function open(table: string, row: Row = {}) {
+    if (!discardForm()) return;
     setEditor({
       table,
       row: {
@@ -303,12 +323,29 @@ function Detail({ id }: { id: number }) {
       </div>
     );
   const tasks = data.tarefas || [];
+  const needsAttention = (task: Row) =>
+    task.status === "bloqueada" ||
+    task.status === "aguardando_validacao" ||
+    (task.data < hoje() && task.status !== "concluida");
+  const attentionCount = tasks.filter(needsAttention).length;
   const filtered = tasks.filter(
     (t) =>
       (!from || t.data >= from) &&
       (!to || t.data <= to) &&
-      (!status || t.status === status),
+      (!status || t.status === status) &&
+      (!attentionOnly || needsAttention(t)),
   );
+  const nextStep = !data.frentes.some((r) => r.ativo)
+    ? { text: "Comece cadastrando uma frente de serviço para organizar o trabalho.", tab: "frentes", action: "Cadastrar frente" }
+    : !data.colaboradores.some((r) => r.ativo)
+      ? { text: "Cadastre as pessoas que participarão da execução.", tab: "colaboradores", action: "Cadastrar pessoa" }
+      : !data.equipes.some((r) => r.ativo)
+        ? { text: "Monte uma equipe para distribuir o trabalho.", tab: "equipes", action: "Cadastrar equipe" }
+        : tasks.length === 0
+          ? { text: "Planeje a semana e distribua as primeiras tarefas.", tab: "compromissos_semanais", action: "Planejar a semana" }
+          : attentionCount > 0
+            ? { text: "Há tarefas atrasadas, bloqueadas ou aguardando aprovação.", tab: "tarefas", action: "Ver pendências" }
+            : { text: "O trabalho está em dia. Confira as tarefas ou prepare o próximo planejamento.", tab: "tarefas", action: "Ver tarefas" };
   const rdoRow = data.rdos?.find((r) => r.id === rdo);
   const rdoItems = rdoRow
     ? data.rdos_itens.filter((item) => item.rdo_id === rdoRow.id)
@@ -341,8 +378,8 @@ function Detail({ id }: { id: number }) {
       return (
         <div className="empty">
           <Layers3 size={36} />
-          <h2>Nenhum registro por aqui</h2>
-          <p>Use o botão acima para começar.</p>
+          <h2>Nenhum item em {names[table].toLowerCase()}</h2>
+          <p>Use a ação “Adicionar” desta seção para cadastrar o primeiro item.</p>
         </div>
       );
     const columns: Record<string, [string, (r: Row) => React.ReactNode][]> = {
@@ -423,7 +460,7 @@ function Detail({ id }: { id: number }) {
       ],
     };
     return (
-      <div className="panel table-wrap">
+      <div className="panel table-wrap responsive-table">
         <table>
           <thead>
             <tr>
@@ -438,16 +475,16 @@ function Detail({ id }: { id: number }) {
             {rows.map((r) => (
               <tr key={r.id}>
                 {columns[table].map(([c, fn]) => (
-                  <td key={c}>{fn(r)}</td>
+                  <td key={c} data-label={c}>{fn(r)}</td>
                 ))}
                 {"ativo" in r && (
-                  <td>
+                  <td data-label="Status">
                     <span className="status">
                       {r.ativo ? "Ativo" : "Arquivado"}
                     </span>
                   </td>
                 )}
-                <td>
+                <td data-label="Ações">
                   {rowActions(table, r)}
                   {table === "rdos" && (
                     <button
@@ -470,7 +507,9 @@ function Detail({ id }: { id: number }) {
   }
   return (
     <>
-      <Link className="back" href="/obras">
+      <Link className="back" href="/obras" onClick={(event) => {
+        if (!discardForm()) event.preventDefault();
+      }}>
         <ArrowLeft size={16} /> Todas as obras
       </Link>
       <div className="page-heading">
@@ -493,22 +532,32 @@ function Detail({ id }: { id: number }) {
           Obra arquivada. Restaure em Minhas obras para retomar os registros.
         </p>
       )}
+      <label className="module-picker" htmlFor="module-select">
+        Área da obra
+        <select id="module-select" value={tab} onChange={(event) => changeTab(event.target.value)}>
+          <optgroup label="Acompanhar">
+            <option value="resumo">Visão geral</option>
+          </optgroup>
+          <optgroup label="Operar">
+            <option value="compromissos_semanais">Planejamento</option>
+            <option value="tarefas">Tarefas</option>
+            <option value="rdos">Diário de obra</option>
+          </optgroup>
+          <optgroup label="Cadastros">
+            <option value="frentes">Frentes</option>
+            <option value="colaboradores">Pessoas</option>
+            <option value="equipes">Equipes</option>
+            <option value="servicos">Serviços</option>
+          </optgroup>
+        </select>
+      </label>
       <nav className="tabs" aria-label="Módulos da obra">
         {tabs.map(([value, label, Icon]) => (
           <button
             key={value}
+            aria-pressed={tab === value}
             className={tab === value ? "active" : ""}
-            onClick={() => {
-              setTab(value);
-              setEditor(null);
-              setEvent(null);
-              setHistory(null);
-              setDispatch(null);
-              setRdo(null);
-              setShowArchived(false);
-              setError("");
-              setNotice("");
-            }}
+            onClick={() => changeTab(value)}
           >
             <Icon size={16} />
             {label}
@@ -545,7 +594,15 @@ function Detail({ id }: { id: number }) {
               onClick={() => open(rdoRow ? "rdos_itens" : tab)}
             >
               <Plus size={16} />
-              {rdoRow ? "Adicionar item" : "Novo registro"}
+              {rdoRow ? "Adicionar item" : ({
+                frentes: "Nova frente",
+                colaboradores: "Nova pessoa",
+                equipes: "Nova equipe",
+                servicos: "Novo serviço",
+                compromissos_semanais: "Novo compromisso",
+                tarefas: "Nova tarefa",
+                rdos: "Novo diário",
+              } as Record<string, string>)[tab]}
             </button>
           )}
         </div>
@@ -553,11 +610,12 @@ function Detail({ id }: { id: number }) {
       {editor && (
         <Editor
           key={`${editor.table}-${editor.row.id || "new"}`}
-          title={`${editor.row.id ? "Editar" : "Novo registro"} · ${names[editor.table]}`}
+          title={`${editor.row.id ? "Editar" : "Cadastrar"} · ${names[editor.table]}`}
           fields={fieldsFor(editor.table, data)}
           initial={editor.row}
           onSave={save}
           onCreateOption={createOption}
+          onDirtyChange={setFormDirty}
           onCancel={() => setEditor(null)}
         />
       )}
@@ -609,6 +667,7 @@ function Detail({ id }: { id: number }) {
           }
           initial={{ quantidade_realizada: 0 }}
           onSave={saveEvent}
+          onDirtyChange={setFormDirty}
           onCancel={() => setEvent(null)}
         />
       )}
@@ -633,12 +692,7 @@ function Detail({ id }: { id: number }) {
               ],
               [
                 "Atenção necessária",
-                tasks.filter(
-                  (t) =>
-                    t.status === "bloqueada" ||
-                    t.status === "aguardando_validacao" ||
-                    (t.data < hoje() && t.status !== "concluida"),
-                ).length,
+                attentionCount,
                 "Bloqueadas ou atrasadas",
               ],
             ].map(([label, value, desc]) => (
@@ -646,27 +700,26 @@ function Detail({ id }: { id: number }) {
                 <span>{label}</span>
                 <strong>{value}</strong>
                 <small>{desc}</small>
+                {label === "Atenção necessária" && attentionCount > 0 && (
+                  <button className="inline-link" onClick={() => {
+                    setFrom(""); setTo(""); setStatus(""); setAttentionOnly(true); setTab("tarefas");
+                  }}>Ver pendências</button>
+                )}
               </div>
             ))}
           </div>
-          <div className="panel editor">
-            <h2>Seu próximo passo</h2>
-            <p className="muted">
-              Cadastre frentes, pessoas e equipes. Depois, planeje a semana,
-              distribua as tarefas diárias e registre a execução.
-            </p>
-            <div className="task-actions" style={{ marginTop: 20 }}>
-              <button
-                className="primary"
-                onClick={() => setTab("compromissos_semanais")}
-              >
-                Planejar a semana
-              </button>
-              <button className="secondary" onClick={() => setTab("tarefas")}>
-                Acompanhar tarefas
-              </button>
+          {canEdit && (
+            <div className="panel editor">
+              <h2>Seu próximo passo</h2>
+              <p className="muted">{nextStep.text}</p>
+              <button className="primary" onClick={() => {
+                if (nextStep.tab === "tarefas" && attentionCount > 0) {
+                  setFrom(""); setTo(""); setStatus(""); setAttentionOnly(true);
+                }
+                setTab(nextStep.tab);
+              }}>{nextStep.action}</button>
             </div>
-          </div>
+          )}
           <div className="panel editor">
             <h2>Produção por serviço</h2>
             <p className="muted">
@@ -759,7 +812,7 @@ function Detail({ id }: { id: number }) {
               </button>
             )}
           </div>
-          <div className="panel table-wrap">
+          <div className="panel table-wrap responsive-table">
             <table>
               <thead>
                 <tr>
@@ -773,11 +826,11 @@ function Detail({ id }: { id: number }) {
               <tbody>
                 {data.equipe_colaboradores.map((m) => (
                   <tr key={m.id}>
-                    <td>{lookup(data, "equipes", m.equipe_id)}</td>
-                    <td>{lookup(data, "colaboradores", m.colaborador_id)}</td>
-                    <td>{date(m.data_inicio)}</td>
-                    <td>{date(m.data_fim)}</td>
-                    <td>
+                    <td data-label="Equipe">{lookup(data, "equipes", m.equipe_id)}</td>
+                    <td data-label="Colaborador">{lookup(data, "colaboradores", m.colaborador_id)}</td>
+                    <td data-label="Início">{date(m.data_inicio)}</td>
+                    <td data-label="Fim">{date(m.data_fim)}</td>
+                    <td data-label="Ação">
                       {m.ativo && canEdit ? (
                         <button
                           className="secondary"
@@ -857,6 +910,7 @@ function Detail({ id }: { id: number }) {
               onClick={() => {
                 setFrom(hoje());
                 setTo(hoje());
+                setAttentionOnly(false);
               }}
             >
               Hoje
@@ -867,9 +921,17 @@ function Detail({ id }: { id: number }) {
                 setFrom("");
                 setTo("");
                 setStatus("");
+                setAttentionOnly(false);
               }}
             >
               Limpar
+            </button>
+            <button
+              className={attentionOnly ? "primary" : "secondary"}
+              aria-pressed={attentionOnly}
+              onClick={() => setAttentionOnly(!attentionOnly)}
+            >
+              Só pendências
             </button>
           </div>
           {filtered.length === 0 ? (
@@ -951,6 +1013,7 @@ function Detail({ id }: { id: number }) {
                         }
                         key={tipo}
                         onClick={() => {
+                          if (!discardForm()) return;
                           setEvent({ task: t, tipo });
                           setEditor(null);
                           window.scrollTo({ top: 0, behavior: "smooth" });

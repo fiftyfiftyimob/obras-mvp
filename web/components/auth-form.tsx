@@ -120,9 +120,12 @@ export default function AuthForm({
           </span>
           <h2>{title}</h2>
           <p className="muted">
-            {signup
-              ? "Crie sua conta de gestor para começar."
-              : "Acesse suas obras e acompanhe o dia a dia."}
+            {{
+              login: "Acesse suas obras e acompanhe o dia a dia.",
+              cadastro: "Crie sua conta de gestor para começar.",
+              recuperar: "Informe seu e-mail para receber um link de recuperação de senha.",
+              nova: "Escolha uma nova senha para voltar a acessar suas obras.",
+            }[mode]}
           </p>
           <form onSubmit={submit}>
             {signup && (
