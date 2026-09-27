@@ -112,6 +112,7 @@ function Obras() {
           <span>Organize frentes, pessoas e entregas em cada obra.</span>
         </div>
         <Link className="secondary pending-entry" href="/pendencias">Ver pendências</Link>
+        <Link className="secondary agenda-entry" href="/agenda">Agenda diária</Link>
       </div>
       <div className="toolbar">
         <label className="search">

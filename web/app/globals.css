@@ -1040,3 +1040,17 @@ progress::-webkit-progress-value {
   .pending-item { align-items: stretch; flex-direction: column; }
   .pending-item .secondary { width: 100%; }
 }
+
+.agenda-list { display: grid; gap: 14px; }
+.agenda-item { padding: 20px 24px; }
+.agenda-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
+.agenda-head h2 { margin-top: 5px; }
+.agenda-item .task-actions { margin-top: 16px; }
+.agenda-controls { flex-wrap: wrap; margin-bottom: 18px; }
+.agenda-copy { margin-bottom: 24px; }
+.agenda-copy .filters { margin: 20px 0 0; align-items: end; }
+@media (max-width: 640px) {
+  .agenda-entry { width: 100%; }
+  .agenda-head { flex-direction: column; }
+  .agenda-item .task-actions { flex-wrap: wrap; }
+}
