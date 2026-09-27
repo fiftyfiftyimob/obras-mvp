@@ -1054,3 +1054,12 @@ progress::-webkit-progress-value {
   .agenda-head { flex-direction: column; }
   .agenda-item .task-actions { flex-wrap: wrap; }
 }
+
+.pending-item .task-actions { justify-content: flex-end; }
+.pending-activity { margin-top: 28px; padding: 24px; }
+.pending-activity .timeline { margin-bottom: 0; }
+.pending-activity .timeline li:last-child { padding-bottom: 0; }
+@media (max-width: 640px) {
+  .pending-item .task-actions { justify-content: stretch; }
+  .pending-item .task-actions > * { width: 100%; }
+}
