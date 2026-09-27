@@ -510,9 +510,7 @@ function Detail({ id }: { id: number }) {
   }
   return (
     <>
-      <Link className="back" href="/obras" onClick={(event) => {
-        if (!discardForm()) event.preventDefault();
-      }}>
+      <Link className="back" href="/obras">
         <ArrowLeft size={16} /> Todas as obras
       </Link>
       <div className="page-heading">
@@ -742,7 +740,7 @@ function Detail({ id }: { id: number }) {
               Quantidades não são somadas entre unidades diferentes. Horas
               contam apenas os intervalos em execução.
             </p>
-            <div className="table-wrap">
+            <div className="table-wrap responsive-table production-summary">
               <table>
                 <thead>
                   <tr>
@@ -760,19 +758,19 @@ function Detail({ id }: { id: number }) {
                       const group = tasks.filter((t) => t.servico_id === s.id);
                       return (
                         <tr key={s.id}>
-                          <td>{s.nome}</td>
-                          <td>
+                          <td data-label="Serviço">{s.nome}</td>
+                          <td data-label="Meta total">
                             {group.reduce(
                               (n, t) => n + Number(t.quantidade_meta),
                               0,
                             )}{" "}
                             {s.unidade}
                           </td>
-                          <td>
+                          <td data-label="Executado">
                             {group.reduce((n, t) => n + progress(data, t), 0)}{" "}
                             {s.unidade}
                           </td>
-                          <td>
+                          <td data-label="Horas previstas">
                             {group
                               .reduce(
                                 (n, t) => n + Number(t.horas_previstas || 0),
@@ -780,7 +778,7 @@ function Detail({ id }: { id: number }) {
                               )
                               .toFixed(1)}
                           </td>
-                          <td>
+                          <td data-label="Horas reais">
                             {group
                               .reduce((n, t) => n + hours(data, t), 0)
                               .toFixed(1)}

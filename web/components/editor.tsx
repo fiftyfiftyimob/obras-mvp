@@ -47,8 +47,20 @@ export default function Editor({
       event.preventDefault();
       event.returnValue = "";
     };
+    const guardLink = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+      if (!event.target.closest('a[href], button[aria-label="Sair"]')) return;
+      if (window.confirm("Descartar as alterações deste formulário?")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    };
     window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
+    document.addEventListener("click", guardLink, true);
+    return () => {
+      window.removeEventListener("beforeunload", warn);
+      document.removeEventListener("click", guardLink, true);
+    };
   }, [dirty]);
   const [creating, setCreating] = useState("");
   const [error, setError] = useState("");
