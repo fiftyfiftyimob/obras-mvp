@@ -375,6 +375,11 @@ function Detail({ id }: { id: number }) {
   const rdoTasks = rdoRow
     ? tasks.filter((task) => task.data === rdoRow.data)
     : [];
+  const rdoEvidence = rdoRow
+    ? (data.evidencias_tarefa || []).filter((e) =>
+        rdoItems.some((item) => item.tarefa_id && item.tarefa_id === e.tarefa_id),
+      )
+    : [];
   const events =
     history === null
       ? []
@@ -1138,15 +1143,17 @@ function Detail({ id }: { id: number }) {
             </button>
             <button className="secondary" onClick={() => window.print()}>
               <Printer size={16} />
-              Imprimir diário
+              Salvar em PDF
             </button>
           </div>
+          <p className="notice rdo-pdf-help">Para compartilhar, escolha “Salvar como PDF” no diálogo de impressão.</p>
           <div className="panel editor rdo-print-heading">
-            <h2>
-              {obra.nome} · {date(rdoRow.data)}
-            </h2>
-            <p>Clima: {rdoRow.clima || "Não informado"}</p>
-            <p>{rdoRow.observacao_geral || "Sem observação geral."}</p>
+            <p className="eyebrow">RELATÓRIO DIÁRIO DE OBRA · RDO #{rdoRow.id}</p>
+            <h2>{obra.nome} · {date(rdoRow.data)}</h2>
+            <p>{[obra.endereco, obra.cidade, obra.estado].filter(Boolean).join(" · ") || "Local não informado"}{obra.cliente_nome ? ` · Cliente: ${obra.cliente_nome}` : ""}</p>
+            <p><strong>Clima:</strong> {rdoRow.clima || "Não informado"}</p>
+            <p><strong>Observações:</strong> {rdoRow.observacao_geral || "Sem observação geral."}</p>
+            <p><strong>Itens registrados:</strong> {rdoItems.length}</p>
           </div>
           <section className="panel editor">
             <div className="section-heading">
@@ -1201,6 +1208,26 @@ function Detail({ id }: { id: number }) {
           {renderTable(
             "rdos_itens",
             rdoItems,
+          )}
+          {rdoEvidence.length > 0 && (
+            <section className="panel rdo-evidence">
+              <h2>Evidências vinculadas</h2>
+              <p className="muted">Fotos das tarefas incluídas neste diário.</p>
+              <div className="rdo-evidence-grid">
+                {rdoEvidence.map((e) => {
+                  const task = tasks.find((t) => t.id === e.tarefa_id);
+                  return (
+                    <figure className="rdo-evidence-card" key={e.id}>
+                      {e.url ? <img src={e.url} alt={`Evidência de ${task ? lookup(data, "servicos", task.servico_id) : "tarefa"}`} /> : <div className="rdo-evidence-missing">Foto indisponível</div>}
+                      <figcaption>
+                        <strong>{task ? lookup(data, "servicos", task.servico_id) : "Tarefa"}</strong>
+                        <span>{new Date(e.criado_em + "Z").toLocaleString("pt-BR")}{e.legenda ? ` · ${e.legenda}` : ""}</span>
+                      </figcaption>
+                    </figure>
+                  );
+                })}
+              </div>
+            </section>
           )}
           <p className="notice">
             Tarefas com produção apontada usam a quantidade registrada. Para
