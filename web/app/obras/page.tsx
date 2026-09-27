@@ -178,7 +178,7 @@ function Obras() {
                 </span>
               </div>
               <h2>
-                <Link href={`/obras/${r.id}`} onClick={(event) => { if (!discardForm()) event.preventDefault(); }}>{r.nome}</Link>
+                <Link href={`/obras/${r.id}`}>{r.nome}</Link>
               </h2>
               <p className="location">
                 <MapPin size={15} />
@@ -194,7 +194,7 @@ function Obras() {
                 <button disabled={busy} onClick={() => archive(r)}>
                   {r.ativo ? "Arquivar" : "Restaurar"}
                 </button>
-                <Link href={`/obras/${r.id}`} onClick={(event) => { if (!discardForm()) event.preventDefault(); }}>
+                <Link href={`/obras/${r.id}`}>
                   Abrir obra <ArrowUpRight size={18} />
                 </Link>
               </div>

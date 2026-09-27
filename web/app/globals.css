@@ -959,8 +959,8 @@ td strong {
     padding: 0 0 16px;
     box-shadow: none;
   }
-  .responsive-table th:last-child,
-  .responsive-table td:last-child {
+  .responsive-table:not(.production-summary) th:last-child,
+  .responsive-table:not(.production-summary) td:last-child {
     display: none !important;
   }
   .workspace {
