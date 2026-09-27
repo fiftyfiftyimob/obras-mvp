@@ -111,7 +111,7 @@ function Obras() {
           <strong>{rows.filter((r) => r.ativo).length} obras ativas</strong>
           <span>Organize frentes, pessoas e entregas em cada obra.</span>
         </div>
-        <span className="pill">Visão geral</span>
+        <Link className="secondary pending-entry" href="/pendencias">Ver pendências</Link>
       </div>
       <div className="toolbar">
         <label className="search">
