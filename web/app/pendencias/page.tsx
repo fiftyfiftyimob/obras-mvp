@@ -75,7 +75,7 @@ function Pending() {
           href: `/obras/${obraId}?tarefa=${task.id}`,
         });
       }
-      for (const key of pendingDates) {
+      for (const key of Array.from(pendingDates)) {
         if (existingRdos.has(key)) continue;
         const [work, day] = key.split(":");
         const obraId = Number(work);
