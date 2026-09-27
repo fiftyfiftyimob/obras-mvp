@@ -1027,3 +1027,16 @@ progress::-webkit-progress-value {
     align-self: center;
   }
 }
+
+.pending-entry { margin-left: auto; }
+.pending-filters { margin-bottom: 24px; }
+.pending-list { display: grid; gap: 12px; }
+.pending-item { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 24px; }
+.pending-item h2 { margin-top: 10px; }
+.pending-item .secondary { flex-shrink: 0; }
+@media (max-width: 640px) {
+  .summary-strip { flex-wrap: wrap; }
+  .pending-entry { width: 100%; margin-left: 0; }
+  .pending-item { align-items: stretch; flex-direction: column; }
+  .pending-item .secondary { width: 100%; }
+}

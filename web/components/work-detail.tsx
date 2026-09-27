@@ -56,6 +56,8 @@ function Detail({ id }: { id: number }) {
   const [to, setTo] = useState("");
   const [status, setStatus] = useState("");
   const [attentionOnly, setAttentionOnly] = useState(false);
+  const [focusedTask, setFocusedTask] = useState<number | null>(null);
+  const [deepLinkHandled, setDeepLinkHandled] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [formDirty, setFormDirty] = useState(false);
   const load = useCallback(async () => {
@@ -77,6 +79,22 @@ function Detail({ id }: { id: number }) {
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => {
+    if (loading || !obra || deepLinkHandled) return;
+    const params = new URLSearchParams(window.location.search);
+    const taskId = Number(params.get("tarefa"));
+    const rdoDate = params.get("novo_rdo");
+    if (Number.isInteger(taskId) && taskId > 0) {
+      setTab("tarefas");
+      setFocusedTask(taskId);
+    } else if (rdoDate && /^\d{4}-\d{2}-\d{2}$/.test(rdoDate)) {
+      setTab("rdos");
+      const existing = data.rdos?.find((row) => row.data === rdoDate);
+      if (existing) setRdo(existing.id);
+      else if (obra.ativo) setEditor({ table: "rdos", row: { data: rdoDate } });
+    }
+    setDeepLinkHandled(true);
+  }, [loading, obra, data.rdos, deepLinkHandled]);
   async function save(row: Row) {
     if (!editor) return;
     const t = editor.table;
@@ -287,6 +305,7 @@ function Detail({ id }: { id: number }) {
   function changeTab(value: string) {
     if (!discardForm()) return;
     setTab(value);
+    setFocusedTask(null);
     if (value !== "tarefas") setAttentionOnly(false);
     setEditor(null);
     setEvent(null);
@@ -335,7 +354,8 @@ function Detail({ id }: { id: number }) {
       (!from || t.data >= from) &&
       (!to || t.data <= to) &&
       (!status || t.status === status) &&
-      (!attentionOnly || needsAttention(t)),
+      (!attentionOnly || needsAttention(t)) &&
+      (focusedTask === null || t.id === focusedTask),
   );
   const nextStep = [
     { when: !data.frentes.some((r) => r.ativo), text: "Comece cadastrando uma frente de serviço para organizar o trabalho.", tab: "frentes", action: "Cadastrar frente" },
@@ -881,13 +901,14 @@ function Detail({ id }: { id: number }) {
               onClose={() => setDispatch(null)}
             />
           )}
+          {focusedTask !== null && <p className="notice">Exibindo a tarefa selecionada. <button className="inline-link" onClick={() => setFocusedTask(null)}>Ver todas as tarefas</button></p>}
           <div className="filters">
             <label>
               De
               <input
                 type="date"
                 value={from}
-                onChange={(e) => setFrom(e.target.value)}
+                onChange={(e) => { setFocusedTask(null); setFrom(e.target.value); }}
               />
             </label>
             <label>
@@ -895,14 +916,14 @@ function Detail({ id }: { id: number }) {
               <input
                 type="date"
                 value={to}
-                onChange={(e) => setTo(e.target.value)}
+                onChange={(e) => { setFocusedTask(null); setTo(e.target.value); }}
               />
             </label>
             <label>
               Status
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value)}
+                onChange={(e) => { setFocusedTask(null); setStatus(e.target.value); }}
               >
                 <option value="">Todos</option>
                 {[
@@ -922,6 +943,7 @@ function Detail({ id }: { id: number }) {
             <button
               className="secondary"
               onClick={() => {
+                setFocusedTask(null);
                 setFrom(hoje());
                 setTo(hoje());
                 setAttentionOnly(false);
@@ -932,6 +954,7 @@ function Detail({ id }: { id: number }) {
             <button
               className="secondary"
               onClick={() => {
+                setFocusedTask(null);
                 setFrom("");
                 setTo("");
                 setStatus("");
@@ -943,7 +966,7 @@ function Detail({ id }: { id: number }) {
             <button
               className={attentionOnly ? "primary" : "secondary"}
               aria-pressed={attentionOnly}
-              onClick={() => setAttentionOnly(!attentionOnly)}
+              onClick={() => { setFocusedTask(null); setAttentionOnly(!attentionOnly); }}
             >
               Só pendências
             </button>
