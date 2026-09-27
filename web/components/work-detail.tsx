@@ -337,17 +337,17 @@ function Detail({ id }: { id: number }) {
       (!status || t.status === status) &&
       (!attentionOnly || needsAttention(t)),
   );
-  const nextStep = !data.frentes.some((r) => r.ativo)
-    ? { text: "Comece cadastrando uma frente de serviço para organizar o trabalho.", tab: "frentes", action: "Cadastrar frente" }
-    : !data.colaboradores.some((r) => r.ativo)
-      ? { text: "Cadastre as pessoas que participarão da execução.", tab: "colaboradores", action: "Cadastrar pessoa" }
-      : !data.equipes.some((r) => r.ativo)
-        ? { text: "Monte uma equipe para distribuir o trabalho.", tab: "equipes", action: "Cadastrar equipe" }
-        : tasks.length === 0
-          ? { text: "Planeje a semana e distribua as primeiras tarefas.", tab: "compromissos_semanais", action: "Planejar a semana" }
-          : attentionCount > 0
-            ? { text: "Há tarefas atrasadas, bloqueadas ou aguardando aprovação.", tab: "tarefas", action: "Ver pendências" }
-            : { text: "O trabalho está em dia. Confira as tarefas ou prepare o próximo planejamento.", tab: "tarefas", action: "Ver tarefas" };
+  const nextStep = [
+    { when: !data.frentes.some((r) => r.ativo), text: "Comece cadastrando uma frente de serviço para organizar o trabalho.", tab: "frentes", action: "Cadastrar frente" },
+    { when: !data.colaboradores.some((r) => r.ativo), text: "Cadastre as pessoas que participarão da execução.", tab: "colaboradores", action: "Cadastrar pessoa" },
+    { when: !data.equipes.some((r) => r.ativo), text: "Monte uma equipe para distribuir o trabalho.", tab: "equipes", action: "Cadastrar equipe" },
+    { when: tasks.length === 0, text: "Planeje a semana e distribua as primeiras tarefas.", tab: "compromissos_semanais", action: "Planejar a semana" },
+    { when: attentionCount > 0, text: "Há tarefas atrasadas, bloqueadas ou aguardando aprovação.", tab: "tarefas", action: "Ver pendências" },
+  ].find((step) => step.when) || {
+    text: "O trabalho está em dia. Confira as tarefas ou prepare o próximo planejamento.",
+    tab: "tarefas",
+    action: "Ver tarefas",
+  };
   const rdoRow = data.rdos?.find((r) => r.id === rdo);
   const rdoItems = rdoRow
     ? data.rdos_itens.filter((item) => item.rdo_id === rdoRow.id)
@@ -705,7 +705,11 @@ function Detail({ id }: { id: number }) {
                 <small>{desc}</small>
                 {label === "Atenção necessária" && attentionCount > 0 && (
                   <button className="inline-link" onClick={() => {
-                    setFrom(""); setTo(""); setStatus(""); setAttentionOnly(true); setTab("tarefas");
+                    setFrom("");
+                    setTo("");
+                    setStatus("");
+                    setAttentionOnly(true);
+                    setTab("tarefas");
                   }}>Ver pendências</button>
                 )}
               </div>
@@ -717,10 +721,16 @@ function Detail({ id }: { id: number }) {
               <p className="muted">{nextStep.text}</p>
               <button className="primary" onClick={() => {
                 if (nextStep.tab === "tarefas" && attentionCount > 0) {
-                  setFrom(""); setTo(""); setStatus(""); setAttentionOnly(true);
+                  setFrom("");
+                  setTo("");
+                  setStatus("");
+                  setAttentionOnly(true);
                 }
                 if (nextStep.tab === "tarefas" && attentionCount === 0) {
-                  setFrom(""); setTo(""); setStatus(""); setAttentionOnly(false);
+                  setFrom("");
+                  setTo("");
+                  setStatus("");
+                  setAttentionOnly(false);
                 }
                 setTab(nextStep.tab);
               }}>{nextStep.action}</button>

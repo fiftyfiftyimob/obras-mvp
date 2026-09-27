@@ -944,6 +944,10 @@ td strong {
   .footer,
   .back,
   .tabs,
+  .module-picker,
+  .page-heading,
+  .section-heading,
+  .notice,
   button,
   .filters,
   .editor:not(.rdo-print-heading) {
@@ -954,6 +958,10 @@ td strong {
     border: 0;
     padding: 0 0 16px;
     box-shadow: none;
+  }
+  .responsive-table th:last-child,
+  .responsive-table td:last-child {
+    display: none !important;
   }
   .workspace {
     padding: 0;
