@@ -220,6 +220,7 @@ function Detail({ id }: { id: number }) {
     if (!rdoRow) return;
     setError("");
     if (checked && progress(data, task) <= 0) {
+      if (!discardForm()) return;
       setEditor({
         table: "rdos_itens",
         row: {
@@ -286,6 +287,7 @@ function Detail({ id }: { id: number }) {
   function changeTab(value: string) {
     if (!discardForm()) return;
     setTab(value);
+    if (value !== "tarefas") setAttentionOnly(false);
     setEditor(null);
     setEvent(null);
     setHistory(null);
@@ -490,6 +492,7 @@ function Detail({ id }: { id: number }) {
                     <button
                       className="secondary"
                       onClick={() => {
+                        if (!discardForm()) return;
                         setRdo(r.id);
                         setEditor(null);
                       }}
@@ -716,6 +719,9 @@ function Detail({ id }: { id: number }) {
                 if (nextStep.tab === "tarefas" && attentionCount > 0) {
                   setFrom(""); setTo(""); setStatus(""); setAttentionOnly(true);
                 }
+                if (nextStep.tab === "tarefas" && attentionCount === 0) {
+                  setFrom(""); setTo(""); setStatus(""); setAttentionOnly(false);
+                }
                 setTab(nextStep.tab);
               }}>{nextStep.action}</button>
             </div>
@@ -936,8 +942,8 @@ function Detail({ id }: { id: number }) {
           </div>
           {filtered.length === 0 ? (
             <div className="empty">
-              <h2>Nenhuma tarefa neste período</h2>
-              <p>Cadastre tarefas ou ajuste os filtros.</p>
+              <h2>{attentionOnly ? "Nenhuma pendência encontrada" : "Nenhuma tarefa neste período"}</h2>
+              <p>{attentionOnly ? "As tarefas atrasadas, bloqueadas ou aguardando aprovação aparecerão aqui." : "Cadastre tarefas ou ajuste os filtros."}</p>
             </div>
           ) : (
             filtered.map((t) => (

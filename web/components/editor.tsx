@@ -1,5 +1,5 @@
 "use client";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { mensagemErro } from "../lib/supabase";
 export type Row = Record<string, any>;
 export type Field = {
@@ -41,6 +41,15 @@ export default function Editor({
 }) {
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
   const [creating, setCreating] = useState("");
   const [error, setError] = useState("");
   const [values, setValues] = useState<Row>(() => ({ ...initial }));
