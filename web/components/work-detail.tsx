@@ -88,6 +88,8 @@ function Detail({ id }: { id: number }) {
       if (!s) throw new Error("Selecione um serviço.");
       row.unidade = s.unidade;
     }
+    if (t === "rdos_itens" && original.tarefa_id && Number(row.quantidade_realizada) <= 0)
+      throw new Error("Informe uma quantidade executada maior que zero.");
     if (t === "colaboradores" && row.cpf) {
       const digits = row.cpf.replace(/\D/g, "");
       if (digits.length !== 11)
@@ -113,7 +115,10 @@ function Detail({ id }: { id: number }) {
         if (!user) throw new Error("Entre novamente.");
         row.dono_id = user.id;
       }
-      if (t === "rdos_itens") row.rdo_id = rdo;
+      if (t === "rdos_itens") {
+        row.rdo_id = rdo;
+        if (original.tarefa_id) row.tarefa_id = original.tarefa_id;
+      }
     }
     const result = original.id
       ? await supabase
@@ -211,19 +216,32 @@ function Detail({ id }: { id: number }) {
   }
   async function toggleRdoTask(task: Row, checked: boolean) {
     if (!rdoRow) return;
-    setBusy(true);
     setError("");
+    if (checked && progress(data, task) <= 0) {
+      setEditor({
+        table: "rdos_itens",
+        row: {
+          tarefa_id: task.id,
+          frente_id: task.frente_id,
+          servico_id: task.servico_id,
+          equipe_id: task.equipe_id || null,
+          quantidade_realizada: 0,
+        },
+      });
+      setNotice("Informe a quantidade realmente executada para incluir a tarefa no diário.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    setBusy(true);
     try {
       if (checked) {
-        const executed = progress(data, task);
         const { error } = await supabase.from("rdos_itens").insert({
           rdo_id: rdoRow.id,
           tarefa_id: task.id,
           frente_id: task.frente_id,
           servico_id: task.servico_id,
           equipe_id: task.equipe_id || null,
-          quantidade_realizada:
-            executed > 0 ? executed : Number(task.quantidade_meta),
+          quantidade_realizada: progress(data, task),
           unidade: task.unidade,
           observacao: task.observacao || null,
         });
@@ -1023,7 +1041,7 @@ function Detail({ id }: { id: number }) {
               Imprimir diário
             </button>
           </div>
-          <div className="panel editor">
+          <div className="panel editor rdo-print-heading">
             <h2>
               {obra.nome} · {date(rdoRow.data)}
             </h2>
@@ -1041,7 +1059,7 @@ function Detail({ id }: { id: number }) {
                 </p>
               </div>
               <span className="status green">
-                {rdoItems.filter((item) => item.tarefa_id).length}/{rdoTasks.length} marcadas
+                {rdoTasks.filter((task) => rdoItems.some((item) => item.tarefa_id === task.id)).length}/{rdoTasks.length} marcadas
               </span>
             </div>
             <div className="rdo-checklist">
@@ -1049,7 +1067,7 @@ function Detail({ id }: { id: number }) {
                 const item = rdoItems.find(
                   (candidate) => candidate.tarefa_id === task.id,
                 );
-                const suggested = progress(data, task) || Number(task.quantidade_meta);
+                const suggested = progress(data, task);
                 return (
                   <label className="rdo-check" key={task.id}>
                     <input
@@ -1085,9 +1103,9 @@ function Detail({ id }: { id: number }) {
             rdoItems,
           )}
           <p className="notice">
-            Ao marcar uma tarefa sem apontamento de produção, o sistema sugere a
-            meta planejada. Use “Editar” para corrigir a quantidade realmente
-            executada antes de imprimir o diário.
+            Tarefas com produção apontada usam a quantidade registrada. Para
+            tarefas sem apontamento, informe a quantidade realmente executada
+            antes de incluí-las no diário.
           </p>
         </>
       )}

@@ -884,8 +884,14 @@ td strong {
   .tabs,
   button,
   .filters,
-  .editor {
+  .editor:not(.rdo-print-heading) {
     display: none !important;
+  }
+  .rdo-print-heading {
+    display: block !important;
+    border: 0;
+    padding: 0 0 16px;
+    box-shadow: none;
   }
   .workspace {
     padding: 0;
