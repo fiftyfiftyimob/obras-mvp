@@ -1,5 +1,5 @@
 "use client";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { mensagemErro } from "../lib/supabase";
 export type Row = Record<string, any>;
 export type Field = {
@@ -26,6 +26,7 @@ export default function Editor({
   onSave,
   onCreateOption,
   onCancel,
+  onDirtyChange,
 }: {
   title: string;
   fields: Field[];
@@ -36,8 +37,19 @@ export default function Editor({
     data: { nome: string; unidade?: string },
   ) => Promise<{ value: string | number; label: string }>;
   onCancel: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
   const [creating, setCreating] = useState("");
   const [error, setError] = useState("");
   const [values, setValues] = useState<Row>(() => ({ ...initial }));
@@ -108,6 +120,7 @@ export default function Editor({
     setError("");
     try {
       await onSave(data);
+      onDirtyChange?.(false);
       onCancel();
     } catch (e) {
       setError(mensagemErro(e));
@@ -115,15 +128,23 @@ export default function Editor({
       setBusy(false);
     }
   }
+  function cancel() {
+    if (dirty && !window.confirm("Descartar as alterações deste formulário?")) return;
+    onDirtyChange?.(false);
+    onCancel();
+  }
   return (
     <section className="panel editor">
       <div className="section-heading">
         <h2>{title}</h2>
-        <button className="secondary" disabled={busy} onClick={onCancel}>
+        <button className="secondary" disabled={busy} onClick={cancel}>
           Cancelar
         </button>
       </div>
-      <form onSubmit={save}>
+      <form onSubmit={save} onChange={() => {
+        setDirty(true);
+        onDirtyChange?.(true);
+      }}>
         <div className="form-grid">
           {fields.map((f) => {
             const options = [
@@ -217,6 +238,7 @@ export default function Editor({
               )}
               {creating === f.name && f.quickCreate && (
                 <div className="quick-create">
+                  <p className="muted quick-create-hint">Este item será salvo no catálogo agora, mesmo se você cancelar o formulário.</p>
                   <input
                     aria-label={f.quickCreate.label}
                     placeholder={f.quickCreate.placeholder}
@@ -257,7 +279,7 @@ export default function Editor({
                       disabled={busy}
                       onClick={() => void createOption(f)}
                     >
-                      Adicionar e selecionar
+                      Criar no catálogo e selecionar
                     </button>
                     <button
                       className="secondary"

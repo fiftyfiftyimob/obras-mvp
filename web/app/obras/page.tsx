@@ -21,6 +21,7 @@ function Obras() {
   const [search, setSearch] = useState("");
   const [archived, setArchived] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [formDirty, setFormDirty] = useState(false);
   async function load() {
     setError("");
     const { data, error } = await supabase
@@ -76,10 +77,16 @@ function Obras() {
     else await load();
     setBusy(false);
   }
+  function discardForm() {
+    if (formDirty && !window.confirm("Descartar as alterações desta obra?")) return false;
+    setFormDirty(false);
+    return true;
+  }
   const visible = rows.filter(
     (r) =>
       r.ativo !== archived &&
-      String(r.nome).toLowerCase().includes(search.toLowerCase()),
+      [r.nome, r.cidade, r.estado, r.cliente_nome]
+        .some((value) => String(value || "").toLowerCase().includes(search.trim().toLowerCase())),
   );
   return (
     <>
@@ -94,7 +101,7 @@ function Obras() {
             Tudo o que acontece nas suas obras, em um só lugar.
           </p>
         </div>
-        <button className="primary" onClick={() => setEditor({})}>
+        <button className="primary" onClick={() => { if (discardForm()) setEditor({}); }}>
           <Plus size={18} /> Nova obra
         </button>
       </div>
@@ -111,7 +118,7 @@ function Obras() {
           <Search size={18} />
           <input
             aria-label="Buscar obra"
-            placeholder="Buscar uma obra…"
+            placeholder="Buscar obra, cidade ou cliente…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -135,6 +142,7 @@ function Obras() {
           fields={fields}
           initial={editor}
           onSave={save}
+          onDirtyChange={setFormDirty}
           onCancel={() => setEditor(null)}
         />
       )}
@@ -150,9 +158,9 @@ function Obras() {
                 ? "Nenhuma obra arquivada"
                 : "Sua primeira obra começa aqui"}
           </h2>
-          <p>Cadastre a obra e organize as próximas etapas.</p>
+          <p>{search ? "Tente outro nome, cidade ou cliente." : archived ? "As obras arquivadas aparecerão aqui." : "Cadastre a obra e organize as próximas etapas."}</p>
           {!archived && !search && (
-            <button className="primary" onClick={() => setEditor({})}>
+            <button className="primary" onClick={() => { if (discardForm()) setEditor({}); }}>
               Cadastrar obra
             </button>
           )}
@@ -170,7 +178,7 @@ function Obras() {
                 </span>
               </div>
               <h2>
-                <Link href={`/obras/${r.id}`}>{r.nome}</Link>
+                <Link href={`/obras/${r.id}`} onClick={(event) => { if (!discardForm()) event.preventDefault(); }}>{r.nome}</Link>
               </h2>
               <p className="location">
                 <MapPin size={15} />
@@ -182,11 +190,11 @@ function Obras() {
                 <span>{r.cliente_nome || "Não informado"}</span>
               </div>
               <div className="card-actions">
-                <button onClick={() => setEditor(r)}>Editar</button>
+                <button onClick={() => { if (discardForm()) setEditor(r); }}>Editar</button>
                 <button disabled={busy} onClick={() => archive(r)}>
                   {r.ativo ? "Arquivar" : "Restaurar"}
                 </button>
-                <Link href={`/obras/${r.id}`}>
+                <Link href={`/obras/${r.id}`} onClick={(event) => { if (!discardForm()) event.preventDefault(); }}>
                   Abrir obra <ArrowUpRight size={18} />
                 </Link>
               </div>
