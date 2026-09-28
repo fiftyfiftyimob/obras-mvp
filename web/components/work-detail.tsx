@@ -548,10 +548,12 @@ function Detail({ id }: { id: number }) {
               .join(" · ") || "Local não informado"}
           </p>
         </div>
+        <div className="task-actions"><Link className="secondary" href={`/obras/${id}/acessos`}><Users size={16} /> Acessos</Link>
         <button className="secondary" onClick={load}>
           <RefreshCw size={16} />
           Atualizar
         </button>
+        </div>
       </div>
       {!canEdit && (
         <p className="notice">
