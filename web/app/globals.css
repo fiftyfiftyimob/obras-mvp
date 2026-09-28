@@ -1113,3 +1113,7 @@ progress::-webkit-progress-value {
 .offline-pending li div { display: grid; gap: 4px; }
 .offline-pending li small { color: var(--muted); }
 @media (max-width: 640px) { .offline-pending li { flex-direction: column; } }
+
+@media (max-width: 640px) {
+  .tabs.shared-tabs { display: flex; gap: 22px; }
+}
