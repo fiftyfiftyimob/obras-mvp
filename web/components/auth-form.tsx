@@ -121,8 +121,8 @@ export default function AuthForm({
           <h2>{title}</h2>
           <p className="muted">
             {{
-              login: "Acesse suas obras e acompanhe o dia a dia.",
-              cadastro: "Crie sua conta de gestor para começar.",
+              login: "Acesse suas obras e os convites recebidos.",
+              cadastro: "Crie sua conta para acessar obras e convites.",
               recuperar: "Informe seu e-mail para receber um link de recuperação de senha.",
               nova: "Escolha uma nova senha para voltar a acessar suas obras.",
             }[mode]}
