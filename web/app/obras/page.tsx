@@ -15,6 +15,7 @@ const fields: Field[] = [
 ];
 function Obras() {
   const [rows, setRows] = useState<Row[]>([]);
+  const [sharedCount, setSharedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editor, setEditor] = useState<Row | null>(null);
@@ -24,12 +25,13 @@ function Obras() {
   const [formDirty, setFormDirty] = useState(false);
   async function load() {
     setError("");
-    const { data, error } = await supabase
-      .from("obras")
-      .select("*")
-      .order("criado_em", { ascending: false });
-    if (error) setError(mensagemErro(error));
-    else setRows(data || []);
+    const [owned, shared] = await Promise.all([
+      supabase.from("obras").select("*").order("criado_em", { ascending: false }),
+      supabase.rpc("minhas_obras_compartilhadas"),
+    ]);
+    if (owned.error || shared.error) setError(mensagemErro(owned.error || shared.error));
+    if (!owned.error) setRows(owned.data || []);
+    if (!shared.error) setSharedCount((shared.data || []).length);
     setLoading(false);
   }
   useEffect(() => {
@@ -88,6 +90,7 @@ function Obras() {
       [r.nome, r.cidade, r.estado, r.cliente_nome]
         .some((value) => String(value || "").toLowerCase().includes(search.trim().toLowerCase())),
   );
+  const sharedOnly = rows.length === 0 && sharedCount > 0 && !archived && !search;
   return (
     <>
       <div className="page-heading">
@@ -157,10 +160,13 @@ function Obras() {
               ? "Nenhuma obra encontrada"
               : archived
                 ? "Nenhuma obra arquivada"
-                : "Sua primeira obra começa aqui"}
+                : sharedOnly
+                  ? "Você recebeu acesso a obras"
+                  : "Sua primeira obra começa aqui"}
           </h2>
-          <p>{search ? "Tente outro nome, cidade ou cliente." : archived ? "As obras arquivadas aparecerão aqui." : "Cadastre a obra e organize as próximas etapas."}</p>
-          {!archived && !search && (
+          <p>{search ? "Tente outro nome, cidade ou cliente." : archived ? "As obras arquivadas aparecerão aqui." : sharedOnly ? `Você tem acesso a ${sharedCount} obra(s) compartilhada(s).` : "Cadastre a obra e organize as próximas etapas."}</p>
+          {sharedOnly && <Link className="primary" href="/compartilhadas">Abrir obras compartilhadas</Link>}
+          {!archived && !search && !sharedOnly && (
             <button className="primary" onClick={() => { if (discardForm()) setEditor({}); }}>
               Cadastrar obra
             </button>
