@@ -63,10 +63,10 @@ export default function Shell({ children }: { children: ReactNode }) {
             obras<span className="brand-dot">.</span>
           </span>
         </Link>
-        <Link className="top-link" href="/obras">
-          <Building2 size={17} /> Minhas obras
+        <Link className="top-link" href="/obras" aria-label="Minhas obras">
+          <Building2 size={17} /> <span className="top-link-label">Minhas obras</span>
         </Link>
-        <Link className="top-link" href="/compartilhadas"><Users size={17} /> Compartilhadas</Link>
+        <Link className="top-link" href="/compartilhadas" aria-label="Obras compartilhadas"><Users size={17} /> <span className="top-link-label">Compartilhadas</span></Link>
         <div className="account">
           <span className="avatar">{name.charAt(0).toUpperCase()}</span>
           <span>{name}</span>

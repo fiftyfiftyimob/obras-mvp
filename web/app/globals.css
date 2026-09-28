@@ -797,10 +797,23 @@ td strong {
   }
   .topbar {
     height: 70px;
-    padding: 0 18px;
-    gap: 20px;
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .topbar .brand {
+    font-size: 22px;
   }
   .top-link {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    justify-content: center;
+    border-radius: 8px;
+  }
+  .top-link:hover, .top-link:focus-visible {
+    background: #edf2e4;
+  }
+  .top-link-label {
     display: none;
   }
   .account > span:not(.avatar) {
