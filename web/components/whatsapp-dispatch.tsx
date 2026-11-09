@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ExternalLink, MessageCircle, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, Copy, ExternalLink, MessageCircle, X } from "lucide-react";
 import type { Row } from "./editor";
 import type { Data } from "../lib/operacional";
 import { date, lookup } from "../lib/operacional";
@@ -35,6 +35,22 @@ function recipientsFor(data: Data, task: Row) {
   );
 }
 
+function messageTemplateFor(task: Row, data: Data, obraNome: string) {
+  const lines = [
+    "Olá, {{nome}}!",
+    "",
+    "Sua programação para " + date(task.data) + " na obra " + obraNome + ":",
+    "Frente: " + lookup(data, "frentes", task.frente_id),
+    "Serviço: " + lookup(data, "servicos", task.servico_id),
+  ];
+  if (task.equipe_id) lines.push("Equipe: " + lookup(data, "equipes", task.equipe_id));
+  if (task.turno) lines.push("Turno: " + task.turno);
+  lines.push("Meta do dia: " + task.quantidade_meta + " " + task.unidade);
+  if (task.observacao) lines.push("Orientações: " + task.observacao);
+  lines.push("", "Por favor, confirme o recebimento desta programação.");
+  return lines.join("\n");
+}
+
 function messageFor(worker: Row, task: Row, data: Data, obraNome: string) {
   const lines = [
     `Olá, ${worker.nome}!`,
@@ -59,10 +75,23 @@ export default function WhatsAppDispatch({ task, data, obraNome, onClose }: {
 }) {
   const [opened, setOpened] = useState<number[]>([]);
   const [popupNotice, setPopupNotice] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [previewWorkerId, setPreviewWorkerId] = useState<number | null>(null);
+  const [messageTemplate, setMessageTemplate] = useState("");
   const recipients = useMemo(() => recipientsFor(data, task), [data, task]);
+  useEffect(() => {
+    setMessageTemplate(messageTemplateFor(task, data, obraNome));
+    setPreviewWorkerId(null);
+    setCopied(false);
+  }, [task.id, obraNome]);
+
+  const previewWorker = recipients.find((worker) => Number(worker.id) === previewWorkerId) || recipients[0];
+  const previewMessage = messageTemplate.replace(/\\{\\{nome\\}\\}/g, previewWorker?.nome || "Nome");
   const prepared = recipients.map((worker) => {
     const phone = whatsappPhone(worker.telefone);
-    const message = messageFor(worker, task, data, obraNome);
+    const message = messageTemplate
+      ? messageTemplate.replace(/\\{\\{nome\\}\\}/g, worker.nome)
+      : messageFor(worker, task, data, obraNome);
     return {
       worker,
       url: phone ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` : "",
@@ -72,6 +101,17 @@ export default function WhatsAppDispatch({ task, data, obraNome, onClose }: {
 
   function markOpened(id: number) {
     setOpened((current) => current.includes(id) ? current : [...current, id]);
+  }
+
+  async function copyPreview() {
+    if (!previewMessage) return;
+    try {
+      await navigator.clipboard.writeText(previewMessage);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setPopupNotice(true);
+    }
   }
 
   function openAll() {
@@ -101,6 +141,33 @@ export default function WhatsAppDispatch({ task, data, obraNome, onClose }: {
         Cada botão abre uma conversa com a mensagem preenchida. Confira o texto e
         toque em Enviar no WhatsApp; o sistema não envia nada automaticamente.
       </p>
+
+      {recipients.length > 0 && (
+        <div className="panel editor">
+          <div className="section-heading">
+            <div>
+              <h3>Mensagem editável</h3>
+              <p className="muted">Use <code>{{nome}}</code> para personalizar automaticamente o nome de cada funcionário.</p>
+            </div>
+            <button className="secondary" type="button" onClick={copyPreview}>
+              {copied ? <Check size={16} /> : <Copy size={16} />}
+              {copied ? "Copiada" : "Copiar mensagem"}
+            </button>
+          </div>
+          <label>
+            Funcionário para visualizar
+            <select value={previewWorker?.id || ""} onChange={(event) => setPreviewWorkerId(Number(event.target.value))}>
+              {recipients.map((worker) => <option key={worker.id} value={worker.id}>{worker.nome}</option>)}
+            </select>
+          </label>
+          <label>
+            Texto dos rascunhos
+            <textarea value={messageTemplate} onChange={(event) => setMessageTemplate(event.target.value)} rows={12} />
+          </label>
+          <p className="muted">Prévia para {previewWorker?.nome || "funcionário selecionado"}:</p>
+          <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{previewMessage}</pre>
+        </div>
+      )}
 
       {available.length > 1 && (
         <div className="task-actions whatsapp-bulk-action">
