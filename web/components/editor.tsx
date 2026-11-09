@@ -25,6 +25,7 @@ export default function Editor({
   initial = {},
   onSave,
   onCreateOption,
+  onFieldChange,
   onCancel,
   onDirtyChange,
 }: {
@@ -37,6 +38,7 @@ export default function Editor({
     data: { nome: string; unidade?: string },
   ) => Promise<{ value: string | number; label: string }>;
   onCancel: () => void;
+  onFieldChange?: (name: string, value: string) => Partial<Row> | void;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -65,6 +67,10 @@ export default function Editor({
   const [creating, setCreating] = useState("");
   const [error, setError] = useState("");
   const [values, setValues] = useState<Row>(() => ({ ...initial }));
+  function updateValue(name: string, value: string) {
+    const derived = onFieldChange?.(name, value) || {};
+    setValues((current) => ({ ...current, ...derived, [name]: value }));
+  }
   const [customFields, setCustomFields] = useState<string[]>(() =>
     fields
       .filter(
@@ -187,10 +193,7 @@ export default function Editor({
                         [f.name]: current[f.name] || { nome: "", unidade: "m²" },
                       }));
                     } else {
-                      setValues((current) => ({
-                        ...current,
-                        [f.name]: event.target.value,
-                      }));
+                      updateValue(f.name, event.target.value);
                     }
                   }}
                 >

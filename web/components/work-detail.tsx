@@ -645,6 +645,23 @@ function Detail({ id }: { id: number }) {
           onCreateOption={createOption}
           onDirtyChange={setFormDirty}
           onCancel={() => setEditor(null)}
+          onFieldChange={
+            editor.table === "tarefas"
+              ? (name, value) => {
+                  if (name !== "compromisso_semanal_id") return;
+                  const commitment = data.compromissos_semanais?.find(
+                    (row) => String(row.id) === value,
+                  );
+                  return commitment
+                    ? {
+                        servico_id: commitment.servico_id,
+                        frente_id: commitment.frente_id,
+                        equipe_id: commitment.equipe_id,
+                      }
+                    : {};
+                }
+              : undefined
+          }
         />
       )}
       {editor?.table === "tarefas" && (
