@@ -18,15 +18,22 @@ export default function Editor({
   initial = {},
   onSave,
   onCancel,
+  onFieldChange,
 }: {
   title: string;
   fields: Field[];
   initial?: Row;
   onSave: (data: Row) => Promise<void>;
   onCancel: () => void;
+  onFieldChange?: (name: string, value: string) => Partial<Row> | void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [values, setValues] = useState<Row>({});
+  function updateValue(name: string, value: string) {
+    const derived = onFieldChange?.(name, value) || {};
+    setValues((current) => ({ ...current, ...derived, [name]: value }));
+  }
   async function save(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -69,7 +76,8 @@ export default function Editor({
                 <select
                   name={f.name}
                   required={f.required}
-                  defaultValue={initial[f.name] ?? ""}
+                  value={values[f.name] ?? initial[f.name] ?? ""}
+                  onChange={(e) => updateValue(f.name, e.target.value)}
                 >
                   <option value="">Selecione</option>
                   {initial[f.name] &&
@@ -89,7 +97,13 @@ export default function Editor({
               ) : f.type === "textarea" ? (
                 <textarea
                   name={f.name}
-                  defaultValue={initial[f.name] ?? ""}
+                  value={values[f.name] ?? initial[f.name] ?? ""}
+                  onChange={(e) =>
+                    setValues((current) => ({
+                      ...current,
+                      [f.name]: e.target.value,
+                    }))
+                  }
                   maxLength={4000}
                 />
               ) : (
@@ -97,7 +111,13 @@ export default function Editor({
                   name={f.name}
                   type={f.type || "text"}
                   required={f.required}
-                  defaultValue={initial[f.name] ?? ""}
+                  value={values[f.name] ?? initial[f.name] ?? ""}
+                  onChange={(e) =>
+                    setValues((current) => ({
+                      ...current,
+                      [f.name]: e.target.value,
+                    }))
+                  }
                   min={f.min}
                   step={f.step}
                   maxLength={f.maxLength ?? 200}
