@@ -530,6 +530,27 @@ function Detail({ id }: { id: number }) {
           initial={editor.row}
           onSave={save}
           onCancel={() => setEditor(null)}
+          onFieldChange={
+            editor.table === "tarefas"
+              ? (name, value) => {
+                  if (name !== "compromisso_semanal_id") return;
+                  const commitment = data.compromissos_semanais?.find(
+                    (row) => String(row.id) === value,
+                  );
+                  return commitment
+                    ? {
+                        servico_id: commitment.servico_id,
+                        frente_id: commitment.frente_id,
+                        equipe_id: commitment.equipe_id,
+                        unidade:
+                          data.servicos?.find(
+                            (service) => service.id === commitment.servico_id,
+                          )?.unidade ?? "",
+                      }
+                    : {};
+                }
+              : undefined
+          }
         />
       )}
       {editor?.table === "tarefas" && (
