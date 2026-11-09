@@ -1023,7 +1023,7 @@ function Detail({ id }: { id: number }) {
                           <input
                             type="checkbox"
                             checked={bulkMemberIds.includes(member.id)}
-                            onChange={(event) => setBulkMemberIds((current) => event.target.checked ? [...new Set([...current, member.id])] : current.filter((id) => id !== member.id))}
+                            onChange={(event) => setBulkMemberIds((current) => event.target.checked ? Array.from(new Set([...current, member.id])) : current.filter((id) => id !== member.id))}
                           />
                           <span>{member.nome} <small className="muted">· {member.funcao}</small></span>
                         </label>
