@@ -90,6 +90,11 @@ function Detail({ id }: { id: number }) {
   const [showArchived, setShowArchived] = useState(false);
   const [formDirty, setFormDirty] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [bulkTeamOpen, setBulkTeamOpen] = useState(false);
+  const [bulkTeamId, setBulkTeamId] = useState("");
+  const [bulkMemberSearch, setBulkMemberSearch] = useState("");
+  const [bulkMemberIds, setBulkMemberIds] = useState<number[]>([]);
+  const [bulkStartDate, setBulkStartDate] = useState(hoje());
   const load = useCallback(async () => {
     try {
       setError("");
@@ -363,6 +368,36 @@ function Detail({ id }: { id: number }) {
   function downloadCollaboratorsTemplate() {
     const blob = new Blob(["nome,funcao,telefone,cpf\\nExemplo,Pedreiro,27999999999,\\n"], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "modelo-colaboradores.csv"; link.click(); URL.revokeObjectURL(url);
+  }
+  async function bulkAddMembers() {
+    if (!bulkTeamId) return setError("Selecione a equipe.");
+    if (!bulkMemberIds.length) return setError("Selecione pelo menos um colaborador.");
+    setBusy(true);
+    setError("");
+    try {
+      const existing = new Set(
+        data.equipe_colaboradores
+          .filter((row) => row.equipe_id === Number(bulkTeamId) && row.ativo)
+          .map((row) => row.colaborador_id),
+      );
+      const selected = bulkMemberIds.filter((memberId) => !existing.has(memberId));
+      if (!selected.length) throw new Error("Todos os colaboradores selecionados já estão vinculados a essa equipe.");
+      const { error: insertError } = await supabase.from("equipe_colaboradores").insert(
+        selected.map((colaborador_id) => ({
+          equipe_id: Number(bulkTeamId),
+          colaborador_id,
+          data_inicio: bulkStartDate || hoje(),
+        })),
+      );
+      if (insertError) throw insertError;
+      setNotice(selected.length + " colaborador(es) vinculado(s) à equipe.");
+      setBulkMemberIds([]);
+      await load();
+    } catch (cause) {
+      setError(mensagemErro(cause));
+    } finally {
+      setBusy(false);
+    }
   }
   function open(table: string, row: Row = {}) {
     if (!discardForm()) return;
@@ -922,14 +957,87 @@ function Detail({ id }: { id: number }) {
           <div className="section-heading">
             <h2>Composição das equipes</h2>
             {canEdit && (
-              <button
-                className="secondary"
-                onClick={() => open("equipe_colaboradores")}
-              >
-                Vincular colaborador
-              </button>
+              <>
+                <button
+                  className="secondary"
+                  onClick={() => open("equipe_colaboradores")}
+                >
+                  Vincular colaborador
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => setBulkTeamOpen(!bulkTeamOpen)}
+                >
+                  {bulkTeamOpen ? "Fechar seleção em lote" : "Adicionar vários"}
+                </button>
+              </>
             )}
           </div>
+          {bulkTeamOpen && canEdit && (
+            <section className="panel editor">
+              <h3>Adicionar vários colaboradores</h3>
+              <p className="muted">Escolha uma equipe e marque as pessoas que devem fazer parte dela.</p>
+              <div className="form-grid">
+                <label>
+                  Equipe
+                  <select value={bulkTeamId} onChange={(event) => setBulkTeamId(event.target.value)}>
+                    <option value="">Selecione</option>
+                    {data.equipes.filter((team) => team.ativo).map((team) => (
+                      <option key={team.id} value={team.id}>{team.nome}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Início do vínculo
+                  <input type="date" value={bulkStartDate} onChange={(event) => setBulkStartDate(event.target.value)} />
+                </label>
+                <label>
+                  Pesquisar colaborador
+                  <input
+                    type="search"
+                    placeholder="Nome ou função"
+                    value={bulkMemberSearch}
+                    onChange={(event) => setBulkMemberSearch(event.target.value)}
+                  />
+                </label>
+              </div>
+              {(() => {
+                const query = bulkMemberSearch.trim().toLowerCase();
+                const members = data.colaboradores
+                  .filter((member) => member.ativo)
+                  .filter((member) => !query || member.nome.toLowerCase().includes(query) || member.funcao.toLowerCase().includes(query));
+                return (
+                  <>
+                    <div className="toolbar">
+                      <button className="secondary" type="button" onClick={() => setBulkMemberIds(members.map((member) => member.id))}>
+                        Selecionar resultados ({members.length})
+                      </button>
+                      <button className="secondary" type="button" onClick={() => setBulkMemberIds([])}>
+                        Limpar seleção
+                      </button>
+                      <span className="muted">{bulkMemberIds.length} selecionado(s)</span>
+                    </div>
+                    <div style={{ maxHeight: 280, overflowY: "auto", display: "grid", gap: 8 }}>
+                      {members.map((member) => (
+                        <label key={member.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <input
+                            type="checkbox"
+                            checked={bulkMemberIds.includes(member.id)}
+                            onChange={(event) => setBulkMemberIds((current) => event.target.checked ? Array.from(new Set([...current, member.id])) : current.filter((id) => id !== member.id))}
+                          />
+                          <span>{member.nome} <small className="muted">· {member.funcao}</small></span>
+                        </label>
+                      ))}
+                      {!members.length && <p className="muted">Nenhum colaborador encontrado.</p>}
+                    </div>
+                    <button className="primary" type="button" disabled={busy || !bulkMemberIds.length} onClick={bulkAddMembers}>
+                      Vincular {bulkMemberIds.length} colaborador(es)
+                    </button>
+                  </>
+                );
+              })()}
+            </section>
+          )}
           <div className="panel table-wrap responsive-table">
             <table>
               <thead>
