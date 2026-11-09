@@ -147,7 +147,7 @@ export default function WhatsAppDispatch({ task, data, obraNome, onClose }: {
           <div className="section-heading">
             <div>
               <h3>Mensagem editável</h3>
-              <p className="muted">Use <code>{{nome}}</code> para personalizar automaticamente o nome de cada funcionário.</p>
+              <p className="muted">Use <code>{"{{nome}}"}</code> para personalizar automaticamente o nome de cada funcionário.</p>
             </div>
             <button className="secondary" type="button" onClick={copyPreview}>
               {copied ? <Check size={16} /> : <Copy size={16} />}
