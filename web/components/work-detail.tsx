@@ -1225,7 +1225,7 @@ function Detail({ id }: { id: number }) {
                     (t.status === "nao_iniciada"
                       ? ["inicio", "impedimento"]
                       : t.status === "em_execucao"
-                        ? ["pausa", "conclusao", "impedimento"]
+                        ? ["pausa", "producao", "conclusao", "impedimento"]
                         : t.status === "pausada"
                           ? ["retomada", "impedimento"]
                           : t.status === "bloqueada"
