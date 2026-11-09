@@ -98,6 +98,8 @@ export default function WhatsAppDispatch({ task, data, obraNome, onClose }: {
     };
   });
   const available = prepared.filter((item) => item.url);
+  const pending = available.filter((item) => !opened.includes(Number(item.worker.id)));
+  const nextRecipient = pending[0];
 
   function markOpened(id: number) {
     setOpened((current) => current.includes(id) ? current : [...current, id]);
@@ -112,6 +114,12 @@ export default function WhatsAppDispatch({ task, data, obraNome, onClose }: {
     } catch {
       setPopupNotice(true);
     }
+  }
+
+  function openNext() {
+    if (!nextRecipient) return;
+    window.open(nextRecipient.url, "_blank", "noopener,noreferrer");
+    markOpened(Number(nextRecipient.worker.id));
   }
 
   function openAll() {
@@ -169,14 +177,23 @@ export default function WhatsAppDispatch({ task, data, obraNome, onClose }: {
         </div>
       )}
 
-      {available.length > 1 && (
+      {available.length > 0 && (
         <div className="task-actions whatsapp-bulk-action">
-          <button className="primary" onClick={openAll}>
-            <MessageCircle size={17} /> Abrir todos os rascunhos
+          <button className="primary" onClick={openNext} disabled={!nextRecipient}>
+            <MessageCircle size={17} />
+            {nextRecipient
+              ? "Abrir próximo: " + nextRecipient.worker.nome
+              : "Todos os rascunhos foram abertos"}
           </button>
           <small className="muted">
-            No celular, prefira abrir um por vez. No computador, permita pop-ups.
+            {opened.filter((id) => available.some((item) => Number(item.worker.id) === id)).length}
+            {" de " + available.length + " rascunhos abertos. Envie cada mensagem manualmente no WhatsApp."}
           </small>
+          {available.length > 1 && (
+            <button className="secondary" onClick={openAll}>
+              Abrir todos no computador
+            </button>
+          )}
         </div>
       )}
 
