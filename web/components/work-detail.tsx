@@ -37,6 +37,35 @@ const tabs = [
   ["equipes", "Equipes", Users],
   ["servicos", "Serviços", ClipboardList],
 ] as const;
+function parseCollaboratorsCsv(text: string) {
+  const lines: string[][] = []; let row: string[] = []; let cell = ""; let quoted = false;
+  const firstBreak = text.search(/[\\r\\n]/); const firstLine = firstBreak >= 0 ? text.slice(0, firstBreak) : text;
+  const delimiter = firstLine.includes(";") ? ";" : ",";
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (char === '"') { if (quoted && text[i + 1] === '"') { cell += '"'; i += 1; } else quoted = !quoted; }
+    else if (!quoted && char === delimiter) { row.push(cell.trim()); cell = ""; }
+    else if (!quoted && (char === "\\n" || char === "\\r")) {
+      if (char === "\\r" && text[i + 1] === "\\n") i += 1;
+      row.push(cell.trim()); if (row.some(Boolean)) lines.push(row); row = []; cell = "";
+    } else cell += char;
+  }
+  row.push(cell.trim()); if (row.some(Boolean)) lines.push(row);
+  if (lines.length < 2) throw new Error("O CSV precisa ter cabeçalho e pelo menos uma pessoa.");
+  const normalize = (value: string) => value.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  const headers = lines[0].map(normalize);
+  const index = (names: string[]) => headers.findIndex((header) => names.includes(header));
+  const nomeIndex = index(["nome", "nomecompleto"]); const funcaoIndex = index(["funcao", "cargo"]);
+  const telefoneIndex = index(["telefone", "celular", "whatsapp"]); const cpfIndex = index(["cpf"]);
+  if (nomeIndex < 0 || funcaoIndex < 0) throw new Error("O cabeçalho precisa conter as colunas nome e funcao.");
+  const errors: string[] = [];
+  const rows = lines.slice(1).map((values, offset) => {
+    const line = offset + 2; const nome = values[nomeIndex]?.trim() || ""; const funcao = values[funcaoIndex]?.trim() || "";
+    if (!nome || !funcao) { errors.push("Linha " + line + ": nome e função são obrigatórios."); return null; }
+    return { nome, funcao, telefone: telefoneIndex >= 0 ? values[telefoneIndex]?.trim() || null : null, cpf: cpfIndex >= 0 ? values[cpfIndex]?.replace(/\\D/g, "") || null : null };
+  }).filter((row): row is { nome: string; funcao: string; telefone: string | null; cpf: string | null } => Boolean(row));
+  return { rows, errors };
+}
 function Detail({ id }: { id: number }) {
   const [obra, setObra] = useState<Row | null>(null);
   const [data, setData] = useState<Data>({});
@@ -60,6 +89,7 @@ function Detail({ id }: { id: number }) {
   const [deepLinkHandled, setDeepLinkHandled] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [formDirty, setFormDirty] = useState(false);
+  const [importing, setImporting] = useState(false);
   const load = useCallback(async () => {
     try {
       setError("");
@@ -315,6 +345,24 @@ function Detail({ id }: { id: number }) {
     setShowArchived(false);
     setError("");
     setNotice("");
+  }
+  async function importCollaborators(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
+    setError("");
+    try {
+      const parsed = parseCollaboratorsCsv(await file.text());
+      if (parsed.errors.length) throw new Error(parsed.errors.slice(0, 5).join(" "));
+      if (!parsed.rows.length) throw new Error("Nenhuma pessoa válida foi encontrada.");
+      if (!window.confirm("Importar " + parsed.rows.length + " pessoa(s) para esta obra?")) return;
+      setImporting(true);
+      const { error: insertError } = await supabase.from("colaboradores").insert(parsed.rows.map((row) => ({ ...row, obra_id: id })));
+      if (insertError) throw insertError;
+      setNotice(parsed.rows.length + " pessoa(s) importada(s) com sucesso."); await load();
+    } catch (cause) { setError(mensagemErro(cause)); } finally { setImporting(false); }
+  }
+  function downloadCollaboratorsTemplate() {
+    const blob = new Blob(["nome,funcao,telefone,cpf\\nExemplo,Pedreiro,27999999999,\\n"], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "modelo-colaboradores.csv"; link.click(); URL.revokeObjectURL(url);
   }
   function open(table: string, row: Row = {}) {
     if (!discardForm()) return;
@@ -850,6 +898,18 @@ function Detail({ id }: { id: number }) {
             >
               {showArchived ? "Mostrar apenas ativos" : "Incluir arquivados"}
             </button>
+            {tab === "colaboradores" && canEdit && (
+              <>
+                <label className="secondary" style={{ cursor: importing ? "wait" : "pointer" }}>
+                  {importing ? "Importando…" : "Importar CSV"}
+                  <input type="file" accept=".csv,text/csv" disabled={importing} onChange={importCollaborators} style={{ display: "none" }} />
+                </label>
+                <button className="secondary" onClick={downloadCollaboratorsTemplate} disabled={importing}>
+                  Baixar modelo CSV
+                </button>
+                <small className="muted">Colunas obrigatórias: nome e funcao.</small>
+              </>
+            )}
           </div>
           {renderTable(
             tab,
