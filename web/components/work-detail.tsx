@@ -488,6 +488,13 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
   const rdoTasks = rdoRow
     ? tasks.filter((task) => task.data === rdoRow.data)
     : [];
+  const rdoImpediments = rdoRow
+    ? (data.evolucoes_tarefa || []).filter(
+        (event) =>
+          event.tipo === "impedimento" &&
+          rdoTasks.some((task) => task.id === event.tarefa_id),
+      )
+    : [];
   const rdoEvidence = rdoRow
     ? (data.evidencias_tarefa || []).filter((e) =>
         rdoItems.some((item) => item.tarefa_id && item.tarefa_id === e.tarefa_id),
@@ -1481,6 +1488,25 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
             <p><strong>Observações:</strong> {rdoRow.observacao_geral || "Sem observação geral."}</p>
             <p><strong>Itens registrados:</strong> {rdoItems.length}</p>
           </div>
+          <section className="panel editor rdo-impediments" aria-labelledby="rdo-impediments-title">
+            <h2 id="rdo-impediments-title">Impedimentos do dia</h2>
+            {rdoImpediments.length ? (
+              <ul className="timeline">
+                {rdoImpediments.map((event) => {
+                  const task = rdoTasks.find((item) => item.id === event.tarefa_id);
+                  if (!task) return null;
+                  return (
+                    <li key={event.id}>
+                      <strong>{lookup(data, "servicos", task.servico_id)}</strong>
+                      <span> · {lookup(data, "frentes", task.frente_id)}</span>
+                      <small>{labels[event.motivo_impedimento] || "Outro motivo"}{task.equipe_id ? " · " + lookup(data, "equipes", task.equipe_id) : ""}</small>
+                      {event.observacao && <p>{event.observacao}</p>}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : <p className="muted">Nenhum impedimento registrado para as tarefas planejadas neste dia.</p>}
+          </section>
           <section className="panel editor">
             <div className="section-heading">
               <div>
