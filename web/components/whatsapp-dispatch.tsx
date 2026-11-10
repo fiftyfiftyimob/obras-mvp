@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Copy, ExternalLink, MessageCircle, X } from "lucide-react";
 import type { Row } from "./editor";
 import type { Data } from "../lib/operacional";
-import { date, lookup } from "../lib/operacional";
+import { date, lookup, formatUnit } from "../lib/operacional";
 
 function whatsappPhone(value?: string | null) {
   const original = String(value || "").trim();
@@ -45,7 +45,7 @@ function messageTemplateFor(task: Row, data: Data, obraNome: string) {
   ];
   if (task.equipe_id) lines.push("Equipe: " + lookup(data, "equipes", task.equipe_id));
   if (task.turno) lines.push("Turno: " + task.turno);
-  lines.push("Meta do dia: " + task.quantidade_meta + " " + task.unidade);
+  lines.push("Meta do dia: " + task.quantidade_meta + " " + formatUnit(task.unidade));
   if (task.observacao) lines.push("Orientações: " + task.observacao);
   lines.push("", "Por favor, confirme o recebimento desta programação.");
   return lines.join("\n");
@@ -61,7 +61,7 @@ function messageFor(worker: Row, task: Row, data: Data, obraNome: string) {
   ];
   if (task.equipe_id) lines.push(`Equipe: ${lookup(data, "equipes", task.equipe_id)}`);
   if (task.turno) lines.push(`Turno: ${task.turno}`);
-  lines.push(`Meta do dia: ${task.quantidade_meta} ${task.unidade}`);
+  lines.push(`Meta do dia: ${task.quantidade_meta} ${formatUnit(task.unidade)}`);
   if (task.observacao) lines.push(`Orientações: ${task.observacao}`);
   lines.push("", "Por favor, confirme o recebimento desta programação.");
   return lines.join("\n");
