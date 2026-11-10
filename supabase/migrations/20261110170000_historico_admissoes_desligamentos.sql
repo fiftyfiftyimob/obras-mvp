@@ -22,6 +22,9 @@ create index if not exists colaborador_periodos_obra_datas_idx
   on public.colaborador_periodos (obra_id, data_admissao, data_desligamento);
 create index if not exists colaborador_periodos_colaborador_datas_idx
   on public.colaborador_periodos (colaborador_id, data_admissao desc);
+create unique index if not exists colaborador_periodos_um_vinculo_aberto_idx
+  on public.colaborador_periodos (colaborador_id)
+  where data_desligamento is null;
 
 alter table public.colaborador_periodos enable row level security;
 revoke all on public.colaborador_periodos from anon, authenticated;
@@ -151,6 +154,7 @@ declare
   v_papel text;
   v_hoje date := (pg_catalog.now() at time zone 'America/Sao_Paulo')::date;
   v_periodo_id bigint;
+  v_tem_periodo boolean;
 begin
   if auth.uid() is null then
     raise exception 'Entre novamente para registrar o desligamento.';
@@ -183,13 +187,40 @@ begin
   order by p.data_admissao desc, p.id desc
   limit 1
   for update;
+  v_tem_periodo := found;
 
-  if not found then
-    raise exception 'Não há vínculo de trabalho ativo para encerrar.';
+  if not v_tem_periodo then
+    select c.data_admissao into v_admissao
+    from public.colaboradores c
+    where c.id = p_colaborador_id;
+    if v_admissao is null then
+      select pg_catalog.min(ec.data_inicio) into v_admissao
+      from public.equipe_colaboradores ec
+      where ec.colaborador_id = p_colaborador_id;
+    end if;
+    v_admissao := coalesce(v_admissao, p_data_desligamento);
+    if p_data_desligamento < v_admissao then
+      raise exception 'A data de desligamento não pode ser anterior ao início do histórico conhecido.';
+    end if;
+    insert into public.colaborador_periodos (
+      obra_id, colaborador_id, data_admissao, data_desligamento,
+      motivo_desligamento, origem, criado_por
+    )
+    values (
+      v_obra_id, p_colaborador_id, v_admissao, p_data_desligamento,
+      nullif(pg_catalog.btrim(p_motivo_desligamento), ''), 'vinculo_legado', auth.uid()
+    )
+    returning id into v_periodo_id;
+  else
+    if p_data_desligamento < v_admissao then
+      raise exception 'A data de desligamento não pode ser anterior à admissão.';
+    end if;
+    update public.colaborador_periodos
+    set data_desligamento = p_data_desligamento,
+        motivo_desligamento = nullif(pg_catalog.btrim(p_motivo_desligamento), '')
+    where id = v_periodo_id;
   end if;
-  if p_data_desligamento < v_admissao then
-    raise exception 'A data de desligamento não pode ser anterior à admissão.';
-  end if;
+
   if exists (
     select 1 from public.equipe_colaboradores ec
     where ec.colaborador_id = p_colaborador_id
@@ -197,11 +228,6 @@ begin
   ) then
     raise exception 'Encerre ou ajuste primeiro os vínculos de equipe agendados após essa data.';
   end if;
-
-  update public.colaborador_periodos
-  set data_desligamento = p_data_desligamento,
-      motivo_desligamento = nullif(pg_catalog.btrim(p_motivo_desligamento), '')
-  where id = v_periodo_id;
 
   update public.equipe_colaboradores
   set data_fim = p_data_desligamento,
