@@ -11,7 +11,10 @@ as $$
     when pg_catalog.lower(pg_catalog.btrim(p_unidade)) in ('m3', 'm³') then 'm³'
     else pg_catalog.lower(pg_catalog.btrim(p_unidade))
   end;
-$$;
+$;
+
+revoke all on function private.unidade_canonica(text) from public;
+grant execute on function private.unidade_canonica(text) to authenticated, service_role;
 
 create or replace function private.validar_registro()
 returns trigger
