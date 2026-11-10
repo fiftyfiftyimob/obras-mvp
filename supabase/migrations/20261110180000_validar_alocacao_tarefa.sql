@@ -58,14 +58,12 @@ $$;
 
 revoke all on function private.validar_alocacao_tarefa() from public, anon, authenticated;
 
-drop trigger if exists validar_alocacao_tarefa_insert on public.tarefas;
 create trigger validar_alocacao_tarefa_insert
 before insert
 on public.tarefas
 for each row
 execute function private.validar_alocacao_tarefa();
 
-drop trigger if exists validar_alocacao_tarefa_update on public.tarefas;
 create trigger validar_alocacao_tarefa_update
 before update of data, equipe_id, colaborador_id
 on public.tarefas
