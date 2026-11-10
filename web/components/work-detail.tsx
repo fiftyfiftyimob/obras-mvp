@@ -28,6 +28,7 @@ import {
   progress,
   hours,
   formatUnit,
+  employmentStatus,
 } from "../lib/operacional";
 const tabs = [
   ["resumo", "Visão geral", ChartNoAxesCombined],
@@ -132,7 +133,7 @@ function duplicateCollaboratorMessage(duplicate: ReturnType<typeof findDuplicate
 type DirectoryTable = "colaboradores" | "equipes";
 type DirectoryFilter = {
   query: string;
-  status: "ativos" | "arquivados" | "todos";
+  status: "ativos" | "programados" | "arquivados" | "todos";
   sort: "nome_asc" | "nome_desc" | "recentes";
   funcao: string;
   equipe: string;
@@ -226,6 +227,28 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
     if (!editor) return;
     const t = editor.table;
     const original = editor.row;
+    if (t === "demissao_colaborador") {
+      const { error } = await supabase.rpc("registrar_desligamento_colaborador", {
+        p_colaborador_id: Number(original.colaborador_id),
+        p_data_desligamento: row.data_desligamento,
+        p_motivo_desligamento: row.motivo_desligamento || null,
+      });
+      if (error) throw error;
+      setNotice("Desligamento registrado. A equipe e o histórico foram atualizados.");
+      await load();
+      return;
+    }
+    if (t === "readmissao_colaborador") {
+      const { error } = await supabase.rpc("registrar_admissao_colaborador", {
+        p_colaborador_id: Number(original.colaborador_id),
+        p_data_admissao: row.data_admissao,
+        p_equipe_id: row.equipe_id ? Number(row.equipe_id) : null,
+      });
+      if (error) throw error;
+      setNotice("Admissão registrada no histórico.");
+      await load();
+      return;
+    }
     if (t === "transferencia_equipe") {
       const { error } = await supabase.rpc("transferir_colaborador_equipe", {
         p_vinculo_id: Number(original.vinculo_id),
@@ -360,6 +383,19 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
     } finally {
       setBusy(false);
     }
+  }
+  function openEmploymentAction(table: "demissao_colaborador" | "readmissao_colaborador", row: Row) {
+    if (!discardForm()) return;
+    setError("");
+    setEditor({
+      table,
+      row: {
+        colaborador_id: row.id,
+        ...(table === "demissao_colaborador"
+          ? { data_desligamento: hoje() }
+          : { data_admissao: hoje() }),
+      },
+    });
   }
   function openTeamTransfer(row: Row) {
     if (!discardForm()) return;
@@ -542,6 +578,8 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
         nivel: 0,
         data: hoje(),
         data_inicio: hoje(),
+        data_admissao: hoje(),
+        data_desligamento: hoje(),
         semana_inicio: hoje(),
         semana_fim: hoje(),
         ...row,
@@ -610,13 +648,16 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
       ? []
       : data.evolucoes_tarefa.filter((e) => e.tarefa_id === history);
   const canEdit = obra.ativo && ["administrador", "engenheiro", "supervisor", "estagiario"].includes(accessRole);
+  const canManagePersonnel = obra.ativo && ["administrador", "engenheiro", "supervisor"].includes(accessRole);
   function directoryRows(table: DirectoryTable) {
     const filters = directoryFilters[table];
     const query = normalizeSearch(filters.query.trim());
     return (data[table] || []).filter((row) => {
-      if (filters.status === "ativos" && !row.ativo) return false;
-      if (filters.status === "arquivados" && row.ativo) return false;
       if (table === "colaboradores") {
+        const employment = employmentStatus(data, row.id, hoje());
+        if (filters.status === "ativos" && employment !== "Ativo") return false;
+        if (filters.status === "programados" && employment !== "Programado") return false;
+        if (filters.status === "arquivados" && employment !== "Desligado") return false;
         if (filters.funcao && row.funcao !== filters.funcao) return false;
         if (filters.equipe && !(
           String(row.equipe_principal_id) === filters.equipe ||
@@ -631,6 +672,8 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
           lookup(data, "equipes", row.equipe_principal_id),
         ].filter(Boolean).join(" ")).includes(query);
       }
+      if (filters.status === "ativos" && !row.ativo) return false;
+      if (filters.status === "arquivados" && row.ativo) return false;
       return !query || normalizeSearch([row.nome, row.descricao].filter(Boolean).join(" ")).includes(query);
     }).sort((a, b) => {
       if (filters.sort === "recentes") return Number(b.id) - Number(a.id);
@@ -656,11 +699,27 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
   const memberFirst = (currentMemberPage - 1) * DIRECTORY_PAGE_SIZE;
   function rowActions(table: string, row: Row) {
     if (!canEdit || (table === "servicos" && !row.dono_id)) return null;
+    if (table === "colaboradores") {
+      const employment = employmentStatus(data, row.id, hoje());
+      return (
+        <div className="row-actions">
+          <button disabled={busy} onClick={() => open(table, row)}>Editar</button>
+          {canManagePersonnel && employment === "Ativo" && (
+            <button className="secondary" disabled={busy} onClick={() => openEmploymentAction("demissao_colaborador", row)}>
+              Registrar desligamento
+            </button>
+          )}
+          {canManagePersonnel && employment === "Desligado" && (
+            <button className="secondary" disabled={busy} onClick={() => openEmploymentAction("readmissao_colaborador", row)}>
+              Registrar admissão
+            </button>
+          )}
+        </div>
+      );
+    }
     return (
       <div className="row-actions">
-        <button disabled={busy} onClick={() => open(table, row)}>
-          Editar
-        </button>
+        <button disabled={busy} onClick={() => open(table, row)}>Editar</button>
         {"ativo" in row && (
           <button disabled={busy} onClick={() => archive(table, row)}>
             {row.ativo ? "Arquivar" : "Restaurar"}
@@ -700,11 +759,16 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
       colaboradores: [
         ["Nome", (r) => r.nome],
         ["Função", (r) => r.funcao],
+        ["Admissão inicial", (r) => date(r.data_admissao)],
+        ["Situação hoje", (r) => employmentStatus(data, r.id, hoje())],
+        ["Último desligamento", (r) => {
+          const last = (data.colaborador_periodos || [])
+            .filter((period) => period.colaborador_id === r.id && period.data_desligamento)
+            .sort((a, b) => String(b.data_desligamento).localeCompare(String(a.data_desligamento)))[0];
+          return last ? date(last.data_desligamento) : "—";
+        }],
         ["Telefone", (r) => r.telefone || "—"],
-        [
-          "Equipe principal",
-          (r) => lookup(data, "equipes", r.equipe_principal_id),
-        ],
+        ["Equipe principal", (r) => lookup(data, "equipes", r.equipe_principal_id)],
       ],
       equipes: [
         ["Equipe", (r) => r.nome],
@@ -930,11 +994,15 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
         <Editor
           key={`${editor.table}-${editor.row.id || "new"}`}
           title={
-            editor.table === "transferencia_equipe"
-              ? `Transferir · ${lookup(data, "colaboradores", editor.row.colaborador_id)}`
-              : `${editor.row.id ? "Editar" : "Cadastrar"} · ${names[editor.table]}`
+            ["demissao_colaborador", "readmissao_colaborador"].includes(editor.table)
+              ? `${names[editor.table]} · ${lookup(data, "colaboradores", editor.row.colaborador_id)}`
+              : editor.table === "transferencia_equipe"
+                ? `Transferir · ${lookup(data, "colaboradores", editor.row.colaborador_id)}`
+                : `${editor.row.id ? "Editar" : "Cadastrar"} · ${names[editor.table]}`
           }
-          fields={fieldsFor(editor.table, data)}
+          fields={fieldsFor(editor.table, data).filter(
+            (field) => !(editor.table === "colaboradores" && editor.row.id && field.name === "data_admissao"),
+          )}
           initial={editor.row}
           onSave={save}
           onCreateOption={createOption}
@@ -1179,7 +1247,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
                 </label>
                 <label>Situação
                   <select value={filters.status} onChange={(event) => updateDirectory(table, { status: event.target.value as DirectoryFilter["status"] })}>
-                    <option value="ativos">Ativos</option><option value="arquivados">Arquivados</option><option value="todos">Todos</option>
+                    <option value="ativos">Ativos hoje</option><option value="programados">Admissão programada</option><option value="arquivados">Desligados</option><option value="todos">Todos</option>
                   </select>
                 </label>
                 {table === "colaboradores" && <>
