@@ -226,6 +226,17 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
     if (!editor) return;
     const t = editor.table;
     const original = editor.row;
+    if (t === "transferencia_equipe") {
+      const { error } = await supabase.rpc("transferir_colaborador_equipe", {
+        p_vinculo_id: Number(original.vinculo_id),
+        p_equipe_destino_id: Number(row.equipe_destino_id),
+        p_data_inicio: hoje(),
+      });
+      if (error) throw error;
+      setNotice("Transferência registrada. O histórico e a equipe principal foram atualizados.");
+      await load();
+      return;
+    }
     if (t === "tarefas" && !row.equipe_id && !row.colaborador_id)
       throw new Error("Selecione uma equipe ou colaborador.");
     if (t === "compromissos_semanais" && row.semana_fim < row.semana_inicio)
@@ -349,6 +360,18 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
     } finally {
       setBusy(false);
     }
+  }
+  function openTeamTransfer(row: Row) {
+    if (!discardForm()) return;
+    setError("");
+    setEditor({
+      table: "transferencia_equipe",
+      row: {
+        vinculo_id: row.id,
+        colaborador_id: row.colaborador_id,
+        equipe_origem_id: row.equipe_id,
+      },
+    });
   }
   async function endMembership(row: Row) {
     setBusy(true);
@@ -906,7 +929,11 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
       {editor && (
         <Editor
           key={`${editor.table}-${editor.row.id || "new"}`}
-          title={`${editor.row.id ? "Editar" : "Cadastrar"} · ${names[editor.table]}`}
+          title={
+            editor.table === "transferencia_equipe"
+              ? `Transferir · ${lookup(data, "colaboradores", editor.row.colaborador_id)}`
+              : `${editor.row.id ? "Editar" : "Cadastrar"} · ${names[editor.table]}`
+          }
           fields={fieldsFor(editor.table, data)}
           initial={editor.row}
           onSave={save}
@@ -931,6 +958,13 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
               : undefined
           }
         />
+      )}
+      {editor?.table === "transferencia_equipe" && (
+        <p className="notice">
+          A transferência começa hoje. O vínculo atual termina ontem; o novo
+          vínculo e a equipe principal serão atualizados juntos, preservando o
+          histórico anterior.
+        </p>
       )}
       {editor?.table === "tarefas" && (
         <p className="notice">
@@ -1302,14 +1336,25 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
                     <td data-label="Início">{date(m.data_inicio)}</td>
                     <td data-label="Fim">{date(m.data_fim)}</td>
                     <td data-label="Ação">
-                      {m.ativo && canEdit ? (
-                        <button
-                          className="secondary"
-                          disabled={busy}
-                          onClick={() => endMembership(m)}
-                        >
-                          Encerrar vínculo
-                        </button>
+                      {m.ativo && canEdit && m.data_inicio <= hoje() ? (
+                        <div className="row-actions">
+                          <button
+                            className="secondary"
+                            disabled={busy}
+                            onClick={() => openTeamTransfer(m)}
+                          >
+                            Transferir
+                          </button>
+                          <button
+                            className="secondary"
+                            disabled={busy}
+                            onClick={() => endMembership(m)}
+                          >
+                            Encerrar vínculo
+                          </button>
+                        </div>
+                      ) : m.ativo && m.data_inicio > hoje() ? (
+                        "Agendado"
                       ) : (
                         "Encerrado"
                       )}
