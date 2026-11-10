@@ -77,15 +77,21 @@ export function acompanharRecuperacao(data: Data, asOf: string): RecoveryItem[] 
     if (executadoNoPrazo >= meta) return;
     const todasTarefasConcluidas =
       relatedTasks.length > 0 &&
-      relatedTasks.every(
-        (task) =>
-          relatedEvents.some(
+      relatedTasks.every((task) => {
+        const teveEventoDeConclusao = events.some(
+          (event) =>
+            Number(event.tarefa_id) === Number(task.id) &&
+            event.tipo === "conclusao",
+        );
+        if (teveEventoDeConclusao) {
+          return relatedEvents.some(
             (event) =>
               Number(event.tarefa_id) === Number(task.id) &&
               event.tipo === "conclusao",
-          ) ||
-          (task.status === "concluida" && task.data <= asOf),
-      );
+          );
+        }
+        return task.status === "concluida" && task.data <= asOf;
+      });
     const status: RecoveryStatus = recuperadaEm
       ? "recuperada"
       : todasTarefasConcluidas
