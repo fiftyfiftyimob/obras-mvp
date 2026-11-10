@@ -22,7 +22,6 @@ type FrontAggregate = {
   intervals: DelayInterval[];
   reasons: string[];
   activities: string[];
-  observations: string[];
   taskIds: number[];
 };
 
@@ -50,12 +49,13 @@ export type FrontDelayEstimate = {
   eventos: number;
   motivos: string[];
   atividades: string[];
+  incidentes: DelayIncident[];
   tarefaIds: number[];
 };
 
 function timestampMs(value: string) {
   const normalized =
-    value.endsWith("Z") || /[+-]\\d\\d:\\d\\d$/.test(value) ? value : value + "Z";
+    value.endsWith("Z") || /[+-]\d\d:\d\d$/.test(value) ? value : value + "Z";
   const parsed = Date.parse(normalized);
   return Number.isFinite(parsed) ? parsed : null;
 }
