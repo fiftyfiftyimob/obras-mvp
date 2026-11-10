@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Data, acompanharRecuperacao, date } from "../lib/operacional";
+import type { Data } from "../lib/operacional";
+import { date } from "../lib/operacional";
+import { acompanharRecuperacao } from "../lib/recuperacao";
 
 function quantidade(value: number) {
   return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(value);
