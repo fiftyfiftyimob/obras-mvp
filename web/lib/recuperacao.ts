@@ -1,6 +1,6 @@
 import { formatUnit, labels, lookup, type Data } from "./operacional";
 
-export type RecoveryStatus = "atrasada" | "recuperada";
+export type RecoveryStatus = "atrasada" | "meta_nao_atingida" | "recuperada";
 export type RecoveryItem = {
   id: number;
   semana_inicio: string;
@@ -75,7 +75,22 @@ export function acompanharRecuperacao(data: Data, asOf: string): RecoveryItem[] 
     });
 
     if (executadoNoPrazo >= meta) return;
-    const status: RecoveryStatus = recuperadaEm ? "recuperada" : "atrasada";
+    const todasTarefasConcluidas =
+      relatedTasks.length > 0 &&
+      relatedTasks.every(
+        (task) =>
+          relatedEvents.some(
+            (event) =>
+              Number(event.tarefa_id) === Number(task.id) &&
+              event.tipo === "conclusao",
+          ) ||
+          (task.status === "concluida" && task.data <= asOf),
+      );
+    const status: RecoveryStatus = recuperadaEm
+      ? "recuperada"
+      : todasTarefasConcluidas
+        ? "meta_nao_atingida"
+        : "atrasada";
     const dataResultado = recuperadaEm || asOf;
     const atrasoDesde = diasEntre(commitment.semana_fim, dataResultado);
     const causas = relatedEvents.filter(
@@ -135,9 +150,14 @@ export function acompanharRecuperacao(data: Data, asOf: string): RecoveryItem[] 
     });
   });
 
+  const prioridade: Record<RecoveryStatus, number> = {
+    atrasada: 0,
+    meta_nao_atingida: 1,
+    recuperada: 2,
+  };
   return items.sort((a, b) => {
-    if (a.status !== b.status) return a.status === "atrasada" ? -1 : 1;
-    if (a.status === "atrasada") return a.semana_fim.localeCompare(b.semana_fim);
+    if (a.status !== b.status) return prioridade[a.status] - prioridade[b.status];
+    if (a.status !== "recuperada") return a.semana_fim.localeCompare(b.semana_fim);
     return String(b.recuperada_em).localeCompare(String(a.recuperada_em));
   });
 }
