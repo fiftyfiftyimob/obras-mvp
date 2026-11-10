@@ -183,7 +183,8 @@ begin
   from public.colaborador_periodos p
   where p.colaborador_id = p_colaborador_id
     and p.obra_id = v_obra_id
-    and p.data_desligamento is null
+    and p.data_admissao <= p_data_desligamento
+    and (p.data_desligamento is null or p.data_desligamento >= p_data_desligamento)
   order by p.data_admissao desc, p.id desc
   limit 1
   for update;
@@ -237,10 +238,9 @@ begin
     and data_inicio <= p_data_desligamento
     and (data_fim is null or data_fim >= p_data_desligamento);
 
-  if p_data_desligamento < v_hoje then
-    update public.colaboradores set ativo = false
-    where id = p_colaborador_id and obra_id = v_obra_id;
-  end if;
+  update public.colaboradores
+  set ativo = p_data_desligamento >= v_hoje
+  where id = p_colaborador_id and obra_id = v_obra_id;
 
   return v_periodo_id;
 end;
