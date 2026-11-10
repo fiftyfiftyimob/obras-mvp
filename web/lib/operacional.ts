@@ -84,6 +84,13 @@ export function options(data: Data, table: string) {
         `${r.semana_inicio} · ${lookup(data, "servicos", r.servico_id)} · ${lookup(data, "frentes", r.frente_id)}`,
     }));
 }
+/** Exibe unidades legadas no formato canônico sem alterar os dados já salvos. */
+export function formatUnit(value: unknown) {
+  const unit = String(value ?? "").trim();
+  if (/^m\\s*2$/i.test(unit) || /^m²$/i.test(unit)) return "m²";
+  if (/^m\\s*3$/i.test(unit) || /^m³$/i.test(unit)) return "m³";
+  return unit;
+}
 export function lookup(data: Data, t: string, id: number | null) {
   return data[t]?.find((r) => r.id === id)?.nome || "—";
 }
