@@ -56,7 +56,16 @@ set search_path = ''
 as $$
 declare
   v_equipe_obra_id integer;
+  v_papel text;
 begin
+  if auth.uid() is null then
+    raise exception 'Entre novamente para registrar a admissão.';
+  end if;
+  v_papel := private.papel_obra(new.obra_id);
+  if v_papel is null or v_papel not in ('administrador', 'engenheiro', 'supervisor') then
+    raise exception 'Seu perfil não pode registrar admissões nesta obra.';
+  end if;
+
   insert into public.colaborador_periodos (
     obra_id, colaborador_id, data_admissao, criado_por
   )
