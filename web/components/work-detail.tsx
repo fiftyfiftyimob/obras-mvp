@@ -565,14 +565,27 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
     );
   }
   function renderTable(table: string, rows: Row[]) {
-    if (rows.length === 0)
+    if (rows.length === 0) {
+      const createAction: Record<string, string> = {
+        frentes: "Nova frente",
+        colaboradores: "Nova pessoa",
+        equipes: "Nova equipe",
+        servicos: "Novo serviço",
+        compromissos_semanais: "Novo compromisso",
+        tarefas: "Nova tarefa",
+        rdos: "Novo diário",
+        rdos_itens: "Adicionar item",
+      };
       return (
         <div className="empty">
           <Layers3 size={36} />
           <h2>Nenhum item em {names[table].toLowerCase()}</h2>
-          <p>Use a ação “Adicionar” desta seção para cadastrar o primeiro item.</p>
+          <p>{canEdit && createAction[table]
+            ? "Use “" + createAction[table] + "” para cadastrar o primeiro item."
+            : "Nenhum registro disponível nesta seção."}</p>
         </div>
       );
+    }
     const columns: Record<string, [string, (r: Row) => React.ReactNode][]> = {
       frentes: [
         ["Frente", (r) => r.nome],
