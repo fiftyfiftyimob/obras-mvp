@@ -367,8 +367,8 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
     setFormDirty(false);
     return true;
   }
-  function changeTab(value: string) {
-    if (!discardForm()) return;
+  function changeTab(value: string): boolean {
+    if (!discardForm()) return false;
     setTab(value);
     setFocusedTask(null);
     if (value !== "tarefas") setAttentionOnly(false);
@@ -380,6 +380,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
     setShowArchived(false);
     setError("");
     setNotice("");
+    return true;
   }
   async function importCollaborators(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
@@ -756,19 +757,28 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
           </optgroup>
         </select>
       </label>
-      <nav className="tabs" aria-label="Módulos da obra">
+      <div role="tablist" className="tabs" aria-label="Módulos da obra"
+        onKeyDown={(event) => {
+          const index = tabs.findIndex(([value]) => value === tab);
+          let next = index;
+          if (event.key === "ArrowRight") next = (index + 1) % tabs.length;
+          else if (event.key === "ArrowLeft") next = (index - 1 + tabs.length) % tabs.length;
+          else if (event.key === "Home") next = 0;
+          else if (event.key === "End") next = tabs.length - 1;
+          else return;
+          event.preventDefault();
+          const value = tabs[next][0];
+          if (changeTab(value)) document.getElementById("work-tab-" + value)?.focus();
+        }}>
         {tabs.map(([value, label, Icon]) => (
-          <button
-            key={value}
-            aria-pressed={tab === value}
-            className={tab === value ? "active" : ""}
-            onClick={() => changeTab(value)}
-          >
-            <Icon size={16} />
-            {label}
+          <button id={"work-tab-" + value} role="tab" aria-selected={tab === value} tabIndex={tab === value ? 0 : -1}
+            aria-controls="work-tabpanel" key={value} className={tab === value ? "active" : ""}
+            onClick={() => changeTab(value)}>
+            <Icon size={16} />{label}
           </button>
         ))}
-      </nav>
+      </div>
+      <div id="work-tabpanel" role="tabpanel" aria-labelledby={"work-tab-" + tab} tabIndex={0}>
       {error && (
         <p className="alert error" role="alert">
           {error}
@@ -1601,6 +1611,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
           </p>
         </>
       )}
+      </div>
     </>
   );
 }

@@ -119,13 +119,25 @@ function SharedDetail({ id }: { id: number }) {
     {pending.length > 0 && <section className="panel editor offline-pending"><h2>Apontamentos neste dispositivo ({pending.length})</h2><p className="muted">São enviados quando a conexão voltar. Mantenha este navegador até confirmar a sincronização.</p><button className="secondary" disabled={busy || (typeof navigator !== "undefined" && !navigator.onLine)} onClick={retry}>Sincronizar agora</button><ul>{pending.map(row => <li key={row.id}><div><strong>{labels[row.tipo] || row.tipo}</strong><small>{new Date(row.criadoEm).toLocaleString("pt-BR")} · tarefa # {row.tarefaId}</small>{row.erro && <span className="alert error">{row.erro}</span>}</div><button className="secondary" disabled={busy} onClick={() => { if (window.confirm("Descartar este apontamento ainda não sincronizado?")) discardReport(uid, row.id); }}>Descartar</button></li>)}</ul></section>}
     {loading ? <p>Carregando…</p> : data && <>
       <p className="notice">{data.obra.papel === "cliente" ? "Acesso de consulta: acompanhe tarefas e diários desta obra." : "Acesso de encarregado: consulte as tarefas atribuídas, registre a execução e informe impedimentos."}</p>
-      <nav className="tabs shared-tabs" aria-label="Áreas compartilhadas"><button className={tab === "tarefas" ? "active" : ""} onClick={() => setTab("tarefas")}>Tarefas</button><button className={tab === "rdos" ? "active" : ""} onClick={() => setTab("rdos")}>Diário de obra</button></nav>
+      <div role="tablist" className="tabs shared-tabs" aria-label="Áreas compartilhadas"
+        onKeyDown={(event) => {
+          if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) return;
+          event.preventDefault();
+          const next = event.key === "Home" || (event.key === "ArrowRight" && tab === "tarefas") ? "tarefas" : "rdos";
+          setTab(next);
+          document.getElementById("shared-tab-" + next)?.focus();
+        }}>
+        <button id="shared-tab-tarefas" role="tab" aria-selected={tab === "tarefas"} aria-controls="shared-tabpanel" tabIndex={tab === "tarefas" ? 0 : -1} className={tab === "tarefas" ? "active" : ""} onClick={() => setTab("tarefas")}>Tarefas</button>
+        <button id="shared-tab-rdos" role="tab" aria-selected={tab === "rdos"} aria-controls="shared-tabpanel" tabIndex={tab === "rdos" ? 0 : -1} className={tab === "rdos" ? "active" : ""} onClick={() => setTab("rdos")}>Diário de obra</button>
+      </div>
+      <div id="shared-tabpanel" role="tabpanel" aria-labelledby={"shared-tab-" + tab} tabIndex={0}>
       {tab === "tarefas" && <div className="shared-list">{data.tarefas.length === 0 ? <div className="empty"><h2>Nenhuma tarefa</h2></div> : data.tarefas.map(task => <article className="panel editor" key={task.id}>
         <div className="section-heading"><div><small>{date(task.data)} · {task.turno || "Dia inteiro"}</small><h2>{task.servico}</h2><p className="muted">{task.frente}{task.equipe ? ` · ${task.equipe}` : ""}</p></div><span className={`status ${task.status === "concluida" ? "green" : ""}`}>{labels[task.status] || task.status}</span></div>
         <p>{task.quantidade_realizada} / {task.quantidade_meta} {formatUnit(task.unidade)} executados</p>{task.observacao && <p className="muted">{task.observacao}</p>}
         {data.obra.papel === "encarregado" && <div className="task-actions">{(actions[task.status] || []).map(([tipo,label]) => <button className={tipo === "inicio" || tipo === "retomada" ? "primary" : "secondary"} key={tipo} onClick={() => open(task,tipo)}>{label}</button>)}</div>}
       </article>)}</div>}
       {tab === "rdos" && <div className="shared-list">{data.rdos.length === 0 ? <div className="empty"><h2>Nenhum diário registrado</h2></div> : data.rdos.map(rdo => <article className="panel editor" key={rdo.id}><h2>RDO · {date(rdo.data)}</h2><p className="muted">Clima: {rdo.clima || "Não informado"}</p>{rdo.observacao_geral && <p>{rdo.observacao_geral}</p>}<ul className="shared-items">{rdo.itens.map(item => <li key={item.id}><strong>{item.servico}</strong> · {item.frente}{item.equipe ? ` · ${item.equipe}` : ""} · {item.quantidade_realizada} {formatUnit(item.unidade)}{item.observacao ? ` · ${item.observacao}` : ""}</li>)}</ul>{rdo.itens.length === 0 && <p className="muted">Sem itens registrados.</p>}</article>)}</div>}
+      </div>
     </>}
     {action && <form className="panel editor shared-action" onSubmit={submit}><h2>{actions[action.task.status]?.find(([tipo]) => tipo === action.tipo)?.[1]} · {action.task.servico}</h2>
       {["pausa","impedimento","producao","solicitacao_conclusao"].includes(action.tipo) && <label>Quantidade executada neste apontamento ({formatUnit(action.task.unidade)})<input type="number" min="0" step="any" required value={quantity} onChange={e => setQuantity(e.target.value)} /></label>}
