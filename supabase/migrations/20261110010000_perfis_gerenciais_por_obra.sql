@@ -30,11 +30,11 @@ $$;
 revoke all on function private.papel_obra(integer) from public, anon;
 grant execute on function private.papel_obra(integer) to authenticated;
 
-create or replace function private.possui_obra(p_obra integer)
+create or replace function private.possui_obra(obra integer)
 returns boolean
 language sql stable security definer set search_path = ''
-as $$
-  select coalesce(private.papel_obra(p_obra) in
+as $
+  select coalesce(private.papel_obra(obra) in
     ('administrador','engenheiro','supervisor','estagiario'), false);
 $$;
 
