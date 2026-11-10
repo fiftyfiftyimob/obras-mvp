@@ -178,6 +178,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
   const [memberSearch, setMemberSearch] = useState("");
   const [memberTeam, setMemberTeam] = useState("");
   const [memberPage, setMemberPage] = useState(1);
+  const [peopleAsOf, setPeopleAsOf] = useState(hoje());
   const [directoryFilters, setDirectoryFilters] = useState<Record<DirectoryTable, DirectoryFilter>>({
     colaboradores: newDirectoryFilter(),
     equipes: newDirectoryFilter(),
@@ -654,7 +655,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
     const query = normalizeSearch(filters.query.trim());
     return (data[table] || []).filter((row) => {
       if (table === "colaboradores") {
-        const employment = employmentStatus(data, row.id, hoje());
+        const employment = employmentStatus(data, row.id, peopleAsOf);
         if (filters.status === "ativos" && employment !== "Ativo") return false;
         if (filters.status === "programados" && employment !== "Programado") return false;
         if (filters.status === "arquivados" && employment !== "Desligado") return false;
@@ -760,7 +761,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
         ["Nome", (r) => r.nome],
         ["Função", (r) => r.funcao],
         ["Admissão inicial", (r) => date(r.data_admissao)],
-        ["Situação hoje", (r) => employmentStatus(data, r.id, hoje())],
+        ["Situação na data", (r) => employmentStatus(data, r.id, peopleAsOf)],
         ["Último desligamento", (r) => {
           const last = (data.colaborador_periodos || [])
             .filter((period) => period.colaborador_id === r.id && period.data_desligamento)
@@ -1245,9 +1246,12 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
                 <label>Pesquisar {table === "colaboradores" ? "pessoa" : "equipe"}
                   <input type="search" value={filters.query} placeholder={table === "colaboradores" ? "Nome, função, telefone ou equipe" : "Nome ou descrição"} onChange={(event) => updateDirectory(table, { query: event.target.value })} />
                 </label>
+                {table === "colaboradores" && <label>Situação em
+                  <input type="date" value={peopleAsOf} onChange={(event) => { setPeopleAsOf(event.target.value || hoje()); updateDirectory(table, {}); }} />
+                </label>}
                 <label>Situação
                   <select value={filters.status} onChange={(event) => updateDirectory(table, { status: event.target.value as DirectoryFilter["status"] })}>
-                    <option value="ativos">Ativos hoje</option><option value="programados">Admissão programada</option><option value="arquivados">Desligados</option><option value="todos">Todos</option>
+                    <option value="ativos">Ativos na data</option><option value="programados">Admissão futura</option><option value="arquivados">Desligados na data</option><option value="todos">Todos</option>
                   </select>
                 </label>
                 {table === "colaboradores" && <>
