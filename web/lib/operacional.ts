@@ -73,6 +73,8 @@ export const names: Record<string, string> = {
   rdos: "Diário de obra",
   equipe_colaboradores: "Composição das equipes",
   transferencia_equipe: "Transferência de equipe",
+  demissao_colaborador: "Desligamento",
+  readmissao_colaborador: "Readmissão",
   rdos_itens: "Itens do diário",
 };
 export function options(data: Data, table: string) {
