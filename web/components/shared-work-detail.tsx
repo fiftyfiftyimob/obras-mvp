@@ -3,8 +3,9 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import Shell from "./shell";
-import WorkDetail, { type AccessRole } from "./work-detail";
-import { date, labels, formatUnit } from "../lib/operacional";
+import { WorkManagement, type AccessRole } from "./work-detail";
+import WorkDashboard from "./work-dashboard";
+import { date, labels, formatUnit, type Data } from "../lib/operacional";
 import { supabase, mensagemErro } from "../lib/supabase";
 import { PendingReport, pendingReports, queueReport, discardReport, syncReports, isNetworkFailure } from "../lib/offline-reports";
 type Task = { id: number; data: string; turno: string | null; status: string; servico: string; frente: string; equipe: string | null; quantidade_meta: number; quantidade_realizada: number; unidade: string; observacao: string | null };
@@ -19,6 +20,25 @@ const actions: Record<string, [string, string][]> = {
   bloqueada: [["retomada","Retomar"]],
 };
 const motives = [["falta_material","Falta de material"],["falta_ferramenta","Falta de ferramenta"],["frente_ocupada","Frente ocupada"],["projeto_pendente","Projeto pendente"],["chuva","Chuva"],["espera_equipe","Espera de equipe"],["seguranca","Segurança"],["outro","Outro"]];
+function SharedDashboard({ id, nome }: { id: number; nome: string }) {
+  const [dashboard, setDashboard] = useState<Data | null>(null);
+  const [error, setError] = useState("");
+  const [attempt, retry] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setError("");
+    setDashboard(null);
+    void supabase.rpc("dashboard_obra_cliente", { p_obra: id }).then(result => {
+      if (!active) return;
+      if (result.error) setError(mensagemErro(result.error));
+      else setDashboard(result.data as Data);
+    });
+    return () => { active = false; };
+  }, [id, attempt]);
+  if (error) return <p className="alert error" role="alert">{error} <button type="button" onClick={() => retry(n => n + 1)}>Tentar novamente</button></p>;
+  return dashboard ? <WorkDashboard data={dashboard} obraId={id} obraNome={nome} /> : <p role="status">Carregando dashboard…</p>;
+}
+type SharedTab = "tarefas" | "rdos" | "dashboard";
 function SharedDetail({ id }: { id: number }) {
   const [data, setData] = useState<Detail | null>(null);
   const [accessRole, setAccessRole] = useState<AccessRole | null>(null);
@@ -28,7 +48,7 @@ function SharedDetail({ id }: { id: number }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [tab, setTab] = useState<"tarefas" | "rdos">("tarefas");
+  const [tab, setTab] = useState<SharedTab>("tarefas");
   const [action, setAction] = useState<{ task: Task; tipo: string } | null>(null);
   const [quantity, setQuantity] = useState("0");
   const [motive, setMotive] = useState("");
@@ -111,6 +131,8 @@ function SharedDetail({ id }: { id: number }) {
     catch (cause) { setError(mensagemErro(cause)); }
     finally { setBusy(false); }
   }
+  if (!loading && !error && accessRole && MANAGEMENT_ROLES.includes(accessRole)) return <WorkManagement key={id} id={id} accessRole={accessRole} />;
+  const sections: SharedTab[] = data?.obra.papel === "cliente" ? ["tarefas", "rdos", "dashboard"] : ["tarefas", "rdos"];
   return <>
     <Link className="back" href="/compartilhadas"><ArrowLeft size={16} /> Obras compartilhadas</Link>
     <div className="page-heading"><div><p className="eyebrow">OBRA COMPARTILHADA</p><h1>{data?.obra.nome || "Carregando obra…"}</h1><p className="muted">{[data?.obra.endereco,data?.obra.cidade,data?.obra.estado].filter(Boolean).join(" · ")}</p></div><button className="secondary" onClick={load} disabled={loading}><RefreshCw size={16} /> Atualizar</button></div>
@@ -118,19 +140,23 @@ function SharedDetail({ id }: { id: number }) {
     {notice && <p className="alert success" role="status">{notice}</p>}
     {pending.length > 0 && <section className="panel editor offline-pending"><h2>Apontamentos neste dispositivo ({pending.length})</h2><p className="muted">São enviados quando a conexão voltar. Mantenha este navegador até confirmar a sincronização.</p><button className="secondary" disabled={busy || (typeof navigator !== "undefined" && !navigator.onLine)} onClick={retry}>Sincronizar agora</button><ul>{pending.map(row => <li key={row.id}><div><strong>{labels[row.tipo] || row.tipo}</strong><small>{new Date(row.criadoEm).toLocaleString("pt-BR")} · tarefa # {row.tarefaId}</small>{row.erro && <span className="alert error">{row.erro}</span>}</div><button className="secondary" disabled={busy} onClick={() => { if (window.confirm("Descartar este apontamento ainda não sincronizado?")) discardReport(uid, row.id); }}>Descartar</button></li>)}</ul></section>}
     {loading ? <p>Carregando…</p> : data && <>
-      <p className="notice">{data.obra.papel === "cliente" ? "Acesso de consulta: acompanhe tarefas e diários desta obra." : "Acesso de encarregado: consulte as tarefas atribuídas, registre a execução e informe impedimentos."}</p>
+      <p className="notice">{data.obra.papel === "cliente" ? "Acesso de consulta: acompanhe tarefas, diários e o dashboard desta obra." : "Acesso de encarregado: consulte as tarefas atribuídas, registre a execução e informe impedimentos."}</p>
       <div role="tablist" className="tabs shared-tabs" aria-label="Áreas compartilhadas"
         onKeyDown={(event) => {
           if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) return;
           event.preventDefault();
-          const next = event.key === "Home" || (event.key === "ArrowRight" && tab === "tarefas") ? "tarefas" : "rdos";
+          const at = sections.indexOf(tab);
+          const next = sections[event.key === "Home" ? 0 : event.key === "End" ? sections.length - 1 :
+            (at + (event.key === "ArrowRight" ? 1 : -1) + sections.length) % sections.length];
           setTab(next);
           document.getElementById("shared-tab-" + next)?.focus();
         }}>
         <button id="shared-tab-tarefas" role="tab" aria-selected={tab === "tarefas"} aria-controls="shared-tabpanel" tabIndex={tab === "tarefas" ? 0 : -1} className={tab === "tarefas" ? "active" : ""} onClick={() => setTab("tarefas")}>Tarefas</button>
         <button id="shared-tab-rdos" role="tab" aria-selected={tab === "rdos"} aria-controls="shared-tabpanel" tabIndex={tab === "rdos" ? 0 : -1} className={tab === "rdos" ? "active" : ""} onClick={() => setTab("rdos")}>Diário de obra</button>
+        {data.obra.papel === "cliente" && <button id="shared-tab-dashboard" role="tab" aria-selected={tab === "dashboard"} aria-controls="shared-tabpanel" tabIndex={tab === "dashboard" ? 0 : -1} className={tab === "dashboard" ? "active" : ""} onClick={() => setTab("dashboard")}>Dashboard</button>}
       </div>
       <div id="shared-tabpanel" role="tabpanel" aria-labelledby={"shared-tab-" + tab} tabIndex={0}>
+      {tab === "dashboard" && data.obra.papel === "cliente" && <SharedDashboard id={id} nome={data.obra.nome} />}
       {tab === "tarefas" && <div className="shared-list">{data.tarefas.length === 0 ? <div className="empty"><h2>Nenhuma tarefa</h2></div> : data.tarefas.map(task => <article className="panel editor" key={task.id}>
         <div className="section-heading"><div><small>{date(task.data)} · {task.turno || "Dia inteiro"}</small><h2>{task.servico}</h2><p className="muted">{task.frente}{task.equipe ? ` · ${task.equipe}` : ""}</p></div><span className={`status ${task.status === "concluida" ? "green" : ""}`}>{labels[task.status] || task.status}</span></div>
         <p>{task.quantidade_realizada} / {task.quantidade_meta} {formatUnit(task.unidade)} executados</p>{task.observacao && <p className="muted">{task.observacao}</p>}
