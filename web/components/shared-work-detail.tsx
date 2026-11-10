@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import Shell from "./shell";
-import { date, labels } from "../lib/operacional";
+import { date, labels, formatUnit } from "../lib/operacional";
 import { supabase, mensagemErro } from "../lib/supabase";
 import { PendingReport, pendingReports, queueReport, discardReport, syncReports, isNetworkFailure } from "../lib/offline-reports";
 type Task = { id: number; data: string; turno: string | null; status: string; servico: string; frente: string; equipe: string | null; quantidade_meta: number; quantidade_realizada: number; unidade: string; observacao: string | null };
@@ -101,13 +101,13 @@ function SharedDetail({ id }: { id: number }) {
       <nav className="tabs shared-tabs" aria-label="Áreas compartilhadas"><button className={tab === "tarefas" ? "active" : ""} onClick={() => setTab("tarefas")}>Tarefas</button><button className={tab === "rdos" ? "active" : ""} onClick={() => setTab("rdos")}>Diário de obra</button></nav>
       {tab === "tarefas" && <div className="shared-list">{data.tarefas.length === 0 ? <div className="empty"><h2>Nenhuma tarefa</h2></div> : data.tarefas.map(task => <article className="panel editor" key={task.id}>
         <div className="section-heading"><div><small>{date(task.data)} · {task.turno || "Dia inteiro"}</small><h2>{task.servico}</h2><p className="muted">{task.frente}{task.equipe ? ` · ${task.equipe}` : ""}</p></div><span className={`status ${task.status === "concluida" ? "green" : ""}`}>{labels[task.status] || task.status}</span></div>
-        <p>{task.quantidade_realizada} / {task.quantidade_meta} {task.unidade} executados</p>{task.observacao && <p className="muted">{task.observacao}</p>}
+        <p>{task.quantidade_realizada} / {task.quantidade_meta} {formatUnit(task.unidade)} executados</p>{task.observacao && <p className="muted">{task.observacao}</p>}
         {data.obra.papel === "encarregado" && <div className="task-actions">{(actions[task.status] || []).map(([tipo,label]) => <button className={tipo === "inicio" || tipo === "retomada" ? "primary" : "secondary"} key={tipo} onClick={() => open(task,tipo)}>{label}</button>)}</div>}
       </article>)}</div>}
-      {tab === "rdos" && <div className="shared-list">{data.rdos.length === 0 ? <div className="empty"><h2>Nenhum diário registrado</h2></div> : data.rdos.map(rdo => <article className="panel editor" key={rdo.id}><h2>RDO · {date(rdo.data)}</h2><p className="muted">Clima: {rdo.clima || "Não informado"}</p>{rdo.observacao_geral && <p>{rdo.observacao_geral}</p>}<ul className="shared-items">{rdo.itens.map(item => <li key={item.id}><strong>{item.servico}</strong> · {item.frente}{item.equipe ? ` · ${item.equipe}` : ""} · {item.quantidade_realizada} {item.unidade}{item.observacao ? ` · ${item.observacao}` : ""}</li>)}</ul>{rdo.itens.length === 0 && <p className="muted">Sem itens registrados.</p>}</article>)}</div>}
+      {tab === "rdos" && <div className="shared-list">{data.rdos.length === 0 ? <div className="empty"><h2>Nenhum diário registrado</h2></div> : data.rdos.map(rdo => <article className="panel editor" key={rdo.id}><h2>RDO · {date(rdo.data)}</h2><p className="muted">Clima: {rdo.clima || "Não informado"}</p>{rdo.observacao_geral && <p>{rdo.observacao_geral}</p>}<ul className="shared-items">{rdo.itens.map(item => <li key={item.id}><strong>{item.servico}</strong> · {item.frente}{item.equipe ? ` · ${item.equipe}` : ""} · {item.quantidade_realizada} {formatUnit(item.unidade)}{item.observacao ? ` · ${item.observacao}` : ""}</li>)}</ul>{rdo.itens.length === 0 && <p className="muted">Sem itens registrados.</p>}</article>)}</div>}
     </>}
     {action && <form className="panel editor shared-action" onSubmit={submit}><h2>{actions[action.task.status]?.find(([tipo]) => tipo === action.tipo)?.[1]} · {action.task.servico}</h2>
-      {["pausa","impedimento","producao","solicitacao_conclusao"].includes(action.tipo) && <label>Quantidade executada neste apontamento ({action.task.unidade})<input type="number" min="0" step="any" required value={quantity} onChange={e => setQuantity(e.target.value)} /></label>}
+      {["pausa","impedimento","producao","solicitacao_conclusao"].includes(action.tipo) && <label>Quantidade executada neste apontamento ({formatUnit(action.task.unidade)})<input type="number" min="0" step="any" required value={quantity} onChange={e => setQuantity(e.target.value)} /></label>}
       {action.tipo === "impedimento" && <label>Motivo<select required value={motive} onChange={e => setMotive(e.target.value)}><option value="">Selecione</option>{motives.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label>}
       <label>Observação<textarea value={observation} onChange={e => setObservation(e.target.value)} /></label>
       <div className="task-actions"><button className="primary" disabled={busy}>Registrar</button><button className="secondary" type="button" disabled={busy} onClick={() => setAction(null)}>Cancelar</button></div>

@@ -26,6 +26,7 @@ import {
   labels,
   progress,
   hours,
+  formatUnit,
 } from "../lib/operacional";
 const tabs = [
   ["resumo", "Visão geral", ChartNoAxesCombined],
@@ -141,7 +142,7 @@ function Detail({ id }: { id: number }) {
     if (row.servico_id) {
       const s = data.servicos.find((s) => s.id === row.servico_id);
       if (!s) throw new Error("Selecione um serviço.");
-      row.unidade = s.unidade;
+      row.unidade = formatUnit(s.unidade);
     }
     if (t === "rdos_itens" && original.tarefa_id && Number(row.quantidade_realizada) <= 0)
       throw new Error("Informe uma quantidade executada maior que zero.");
@@ -215,7 +216,7 @@ function Detail({ id }: { id: number }) {
       payload = {
         dono_id: user.id,
         nome: input.nome,
-        unidade: input.unidade || "un",
+        unidade: formatUnit(input.unidade || "un"),
       };
     }
 
@@ -298,7 +299,7 @@ function Detail({ id }: { id: number }) {
           servico_id: task.servico_id,
           equipe_id: task.equipe_id || null,
           quantidade_realizada: progress(data, task),
-          unidade: task.unidade,
+          unidade: formatUnit(task.unidade),
           observacao: task.observacao || null,
         });
         if (error) throw error;
@@ -532,7 +533,7 @@ function Detail({ id }: { id: number }) {
             </>
           ),
         ],
-        ["Unidade", (r) => r.unidade],
+        ["Unidade", (r) => formatUnit(r.unidade)],
         ["Referência / hora", (r) => r.produtividade_referencia ?? "—"],
       ],
       compromissos_semanais: [
@@ -549,11 +550,11 @@ function Detail({ id }: { id: number }) {
           ),
         ],
         ["Equipe", (r) => lookup(data, "equipes", r.equipe_id)],
-        ["Meta", (r) => `${r.quantidade_meta} ${r.unidade}`],
+        ["Meta", (r) => `${r.quantidade_meta} ${formatUnit(r.unidade)}`],
         [
           "Realizado",
           (r) =>
-            `${tasks.filter((t) => t.compromisso_semanal_id === r.id).reduce((n, t) => n + progress(data, t), 0)} ${r.unidade}`,
+            `${tasks.filter((t) => t.compromisso_semanal_id === r.id).reduce((n, t) => n + progress(data, t), 0)} ${formatUnit(r.unidade)}`,
         ],
       ],
       rdos: [
@@ -565,7 +566,7 @@ function Detail({ id }: { id: number }) {
         ["Frente", (r) => lookup(data, "frentes", r.frente_id)],
         ["Serviço", (r) => lookup(data, "servicos", r.servico_id)],
         ["Equipe", (r) => lookup(data, "equipes", r.equipe_id)],
-        ["Executado", (r) => `${r.quantidade_realizada} ${r.unidade}`],
+        ["Executado", (r) => `${r.quantidade_realizada} ${formatUnit(r.unidade)}`],
         ["Observação", (r) => r.observacao || "—"],
       ],
     };
@@ -764,7 +765,7 @@ function Detail({ id }: { id: number }) {
                 : [
                     {
                       name: "quantidade_realizada",
-                      label: `Quantidade produzida desde o último registro (${event.task.unidade})`,
+                      label: `Quantidade produzida desde o último registro (${formatUnit(event.task.unidade)})`,
                       type: "number",
                       min: "0",
                       step: "any",
@@ -891,11 +892,11 @@ function Detail({ id }: { id: number }) {
                               (n, t) => n + Number(t.quantidade_meta),
                               0,
                             )}{" "}
-                            {s.unidade}
+                            {formatUnit(s.unidade)}
                           </td>
                           <td data-label="Executado">
                             {group.reduce((n, t) => n + progress(data, t), 0)}{" "}
-                            {s.unidade}
+                            {formatUnit(s.unidade)}
                           </td>
                           <td data-label="Horas previstas">
                             {group
@@ -1195,7 +1196,7 @@ function Detail({ id }: { id: number }) {
                 <div className="task-metrics">
                   <span>
                     <strong>{progress(data, t)}</strong> / {t.quantidade_meta}{" "}
-                    {t.unidade} executados
+                    {formatUnit(t.unidade)} executados
                   </span>
                   <span>
                     {hours(data, t).toFixed(1)} h reais ·{" "}
@@ -1285,7 +1286,7 @@ function Detail({ id }: { id: number }) {
                               )}
                             </small>
                             <span>
-                              Produção: {e.quantidade_realizada || 0} {t.unidade}
+                              Produção: {e.quantidade_realizada || 0} {formatUnit(t.unidade)}
                               {e.motivo_impedimento
                                 ? ` · ${labels[e.motivo_impedimento]}`
                                 : ""}
@@ -1378,7 +1379,7 @@ function Detail({ id }: { id: number }) {
                         {lookup(data, "frentes", task.frente_id)} · {task.equipe_id
                           ? lookup(data, "equipes", task.equipe_id)
                           : lookup(data, "colaboradores", task.colaborador_id)} ·{" "}
-                        {suggested} {task.unidade}
+                        {suggested} {formatUnit(task.unidade)}
                       </small>
                     </span>
                   </label>
