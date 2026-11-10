@@ -1285,6 +1285,33 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
           })() : renderTable(tab, data[tab].filter((r) => showArchived || r.ativo))}
         </>
       )}
+      {tab === "colaboradores" && (
+        <section className="panel">
+          <details>
+            <summary>Histórico de admissões e desligamentos ({(data.colaborador_periodos || []).length})</summary>
+            <div className="panel table-wrap responsive-table" style={{ marginTop: 12 }}>
+              <table>
+                <thead><tr><th>Colaborador</th><th>Admissão</th><th>Desligamento</th><th>Motivo</th><th>Origem</th></tr></thead>
+                <tbody>
+                  {(data.colaborador_periodos || [])
+                    .slice()
+                    .sort((a, b) => String(b.data_admissao).localeCompare(String(a.data_admissao)) || Number(b.id) - Number(a.id))
+                    .map((period) => (
+                      <tr key={period.id}>
+                        <td data-label="Colaborador">{lookup(data, "colaboradores", period.colaborador_id)}</td>
+                        <td data-label="Admissão">{date(period.data_admissao)}</td>
+                        <td data-label="Desligamento">{date(period.data_desligamento)}</td>
+                        <td data-label="Motivo">{period.motivo_desligamento || "—"}</td>
+                        <td data-label="Origem">{period.origem === "simulacao" ? "Simulação" : period.origem === "vinculo_legado" ? "Histórico anterior" : "Registrado"}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+              {!(data.colaborador_periodos || []).length && <p className="muted" style={{ padding: 16 }}>As novas admissões e desligamentos aparecerão aqui.</p>}
+            </div>
+          </details>
+        </section>
+      )}
       {tab === "equipes" && (
         <>
           <div className="section-heading">
