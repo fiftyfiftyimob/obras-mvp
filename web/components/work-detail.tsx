@@ -261,10 +261,113 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
       await load();
       return;
     }
-    if (t === "tarefas" && !row.equipe_id && !row.colaborador_id)
-      throw new Error("Selecione uma equipe ou colaborador.");
+    if (t === "tarefas") {
+      if (!row.equipe_id && !row.colaborador_id)
+        throw new Error("Selecione uma equipe ou colaborador.");
+
+      const taskDate = String(row.data || "");
+      const serviceId = Number(row.servico_id);
+      const frontId = Number(row.frente_id);
+      const teamId = row.equipe_id ? Number(row.equipe_id) : null;
+      const collaboratorId = row.colaborador_id ? Number(row.colaborador_id) : null;
+      const service = data.servicos?.find((item) => Number(item.id) === serviceId);
+      const front = data.frentes?.find((item) => Number(item.id) === frontId);
+      const team = teamId
+        ? data.equipes?.find((item) => Number(item.id) === teamId)
+        : null;
+      if (!service) throw new Error("Selecione um serviço válido para esta obra.");
+      if (!front || front.ativo === false)
+        throw new Error("Selecione uma frente ativa desta obra.");
+      if (teamId && (!team || team.ativo === false))
+        throw new Error("Selecione uma equipe ativa desta obra.");
+
+      const commitmentId = row.compromisso_semanal_id
+        ? Number(row.compromisso_semanal_id)
+        : null;
+      if (commitmentId) {
+        const commitment = data.compromissos_semanais?.find(
+          (item) => Number(item.id) === commitmentId,
+        );
+        if (!commitment)
+          throw new Error("O compromisso semanal selecionado não está disponível nesta obra.");
+        if (taskDate < commitment.semana_inicio || taskDate > commitment.semana_fim)
+          throw new Error("A data da tarefa precisa estar dentro do período do compromisso semanal.");
+        if (
+          Number(commitment.servico_id) !== serviceId ||
+          Number(commitment.frente_id) !== frontId ||
+          Number(commitment.equipe_id) !== teamId
+        )
+          throw new Error("A tarefa precisa usar o mesmo serviço, frente e equipe do compromisso semanal.");
+      }
+
+      if (collaboratorId) {
+        const collaborator = data.colaboradores?.find(
+          (item) => Number(item.id) === collaboratorId,
+        );
+        if (!collaborator)
+          throw new Error("Selecione um colaborador cadastrado nesta obra.");
+        const periods = (data.colaborador_periodos || []).filter(
+          (period) => Number(period.colaborador_id) === collaboratorId,
+        );
+        if (
+          periods.length &&
+          !periods.some(
+            (period) =>
+              period.data_admissao <= taskDate &&
+              (!period.data_desligamento || period.data_desligamento >= taskDate),
+          )
+        )
+          throw new Error("Esse colaborador não estava admitido na data da tarefa.");
+        if (
+          !periods.length &&
+          collaborator.data_admissao &&
+          collaborator.data_admissao > taskDate
+        )
+          throw new Error("A data da tarefa é anterior à admissão desse colaborador.");
+
+        if (
+          teamId &&
+          !(data.equipe_colaboradores || []).some(
+            (membership) =>
+              Number(membership.equipe_id) === teamId &&
+              Number(membership.colaborador_id) === collaboratorId &&
+              membership.data_inicio <= taskDate &&
+              (!membership.data_fim || membership.data_fim >= taskDate),
+          )
+        )
+          throw new Error("Esse colaborador não fazia parte da equipe escolhida na data da tarefa. Ajuste a equipe ou a pessoa.");
+      }
+    }
     if (t === "compromissos_semanais" && row.semana_fim < row.semana_inicio)
       throw new Error("A data final deve ser igual ou posterior ao início.");
+    if (t === "rdos" && data.rdos?.some(
+      (item) => item.data === row.data && Number(item.id) !== Number(original.id),
+    ))
+      throw new Error("Já existe um diário de obra para esta data.");
+
+    if (t === "rdos_itens" && original.tarefa_id) {
+      const task = data.tarefas?.find(
+        (item) => Number(item.id) === Number(original.tarefa_id),
+      );
+      const rdoId = Number(original.rdo_id || rdo);
+      const daily = data.rdos?.find((item) => Number(item.id) === rdoId);
+      if (!task || !daily)
+        throw new Error("A tarefa ou o diário relacionado não está mais disponível.");
+      if (task.data !== daily.data)
+        throw new Error("A tarefa precisa estar planejada para a mesma data do diário.");
+      if (
+        Number(task.frente_id) !== Number(row.frente_id) ||
+        Number(task.servico_id) !== Number(row.servico_id) ||
+        (task.equipe_id ? Number(task.equipe_id) : null) !==
+          (row.equipe_id ? Number(row.equipe_id) : null) ||
+        formatUnit(task.unidade) !==
+          formatUnit(
+            data.servicos?.find((item) => Number(item.id) === Number(row.servico_id))?.unidade,
+          )
+      )
+        throw new Error("Frente, serviço, equipe e unidade do item precisam corresponder à tarefa vinculada.");
+    }
+
     if (row.servico_id) {
       const s = data.servicos.find((s) => s.id === row.servico_id);
       if (!s) throw new Error("Selecione um serviço.");
