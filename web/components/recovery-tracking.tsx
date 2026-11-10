@@ -19,7 +19,8 @@ export default function RecoveryTracking({
   onOpenTask: (taskId: number) => void;
 }) {
   const [showAll, setShowAll] = useState(false);
-  const items = acompanharRecuperacao(data, today);
+  const [asOf, setAsOf] = useState(today);
+  const items = acompanharRecuperacao(data, asOf);
   const delayed = items.filter((item) => item.status === "atrasada").length;
   const recovered = items.length - delayed;
   const visible = showAll ? items : items.slice(0, 8);
@@ -30,11 +31,25 @@ export default function RecoveryTracking({
         <div>
           <h2 id="recovery-title">Atrasos e recuperação de frentes</h2>
           <p className="muted">
-            Compara a meta semanal com a produção lançada até hoje e relaciona
-            impedimentos, retomadas e novos vínculos de equipe após o prazo.
+            Compara a meta semanal com a produção lançada até a data escolhida e
+            relaciona impedimentos, retomadas e novos vínculos de equipe após o prazo.
           </p>
         </div>
+        <label className="form-field" htmlFor="recovery-as-of">
+          Data de análise
+          <input
+            id="recovery-as-of"
+            type="date"
+            value={asOf}
+            onChange={(event) => setAsOf(event.target.value || today)}
+          />
+        </label>
       </div>
+      {asOf > today && (
+        <p className="notice">
+          A data escolhida é futura. A análise considera lançamentos já registrados para esse período.
+        </p>
+      )}
 
       {items.length > 0 ? (
         <>
@@ -130,8 +145,8 @@ export default function RecoveryTracking({
         </>
       ) : (
         <p className="notice">
-          Nenhum compromisso semanal vencido com meta pendente ou recuperada.
-          Os prazos ainda futuros não aparecem nesta lista.
+          Nenhum compromisso semanal vencido até {date(asOf)} com meta pendente ou recuperada.
+          Os prazos posteriores à data de análise não aparecem nesta lista.
         </p>
       )}
     </section>
