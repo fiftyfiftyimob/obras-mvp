@@ -112,6 +112,33 @@ export function date(value: string) {
     ? new Date(value.slice(0, 10) + "T12:00:00").toLocaleDateString("pt-BR")
     : "—";
 }
+
+const SIMULATION_MARKER = "SIMULACAO ANUAL 2026-2027";
+
+export function isSimulationTask(task: Row) {
+  return String(task.observacao || "").startsWith(SIMULATION_MARKER);
+}
+
+export function isSimulationRdo(data: Data, rdo: Row) {
+  if (String(rdo.observacao_geral || "").includes(SIMULATION_MARKER)) return true;
+  const simulationTaskIds = new Set(
+    (data.tarefas || []).filter(isSimulationTask).map((task) => Number(task.id)),
+  );
+  return (data.rdos_itens || []).some(
+    (item) =>
+      Number(item.rdo_id) === Number(rdo.id) &&
+      item.tarefa_id != null &&
+      simulationTaskIds.has(Number(item.tarefa_id)),
+  );
+}
+
+export function isSimulationCollaborator(data: Data, collaboratorId: number) {
+  return (data.colaborador_periodos || []).some(
+    (period) =>
+      Number(period.colaborador_id) === Number(collaboratorId) &&
+      period.origem === "simulacao",
+  );
+}
 export function fieldsFor(table: string, data: Data): Field[] {
   const choices = (values: string[]) =>
     Array.from(new Set(values.filter(Boolean))).map((value) => ({
