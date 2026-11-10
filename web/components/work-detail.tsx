@@ -67,7 +67,8 @@ function parseCollaboratorsCsv(text: string) {
   }).filter((row): row is { nome: string; funcao: string; telefone: string | null; cpf: string | null } => Boolean(row));
   return { rows, errors };
 }
-function Detail({ id }: { id: number }) {
+export type AccessRole = "administrador" | "engenheiro" | "supervisor" | "estagiario" | "encarregado" | "cliente";
+function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?: AccessRole }) {
   const [obra, setObra] = useState<Row | null>(null);
   const [data, setData] = useState<Data>({});
   const [tab, setTab] = useState("resumo");
@@ -468,7 +469,7 @@ function Detail({ id }: { id: number }) {
     history === null
       ? []
       : data.evolucoes_tarefa.filter((e) => e.tarefa_id === history);
-  const canEdit = obra.ativo;
+  const canEdit = obra.ativo && ["administrador", "engenheiro", "supervisor", "estagiario"].includes(accessRole);
   function rowActions(table: string, row: Row) {
     if (!canEdit || (table === "servicos" && !row.dono_id)) return null;
     return (
@@ -624,7 +625,7 @@ function Detail({ id }: { id: number }) {
       </Link>
       <div className="page-heading">
         <div>
-          <p className="eyebrow">ESPAÇO DA OBRA</p>
+          <p className="eyebrow">{accessRole === "administrador" ? "ESPAÇO DA OBRA" : `OBRA COMPARTILHADA · ${accessRole === "estagiario" ? "ESTAGIÁRIO" : accessRole.toUpperCase()}`}</p>
           <h1>{obra.nome}</h1>
           <p className="muted">
             {[obra.endereco, obra.cidade, obra.estado]
@@ -632,7 +633,7 @@ function Detail({ id }: { id: number }) {
               .join(" · ") || "Local não informado"}
           </p>
         </div>
-        <div className="task-actions"><Link className="secondary" href={`/obras/${id}/acessos`}><Users size={16} /> Acessos</Link>
+        <div className="task-actions">{accessRole === "administrador" && <Link className="secondary" href={`/obras/${id}/acessos`}><Users size={16} /> Acessos</Link>}
         <button className="secondary" onClick={load}>
           <RefreshCw size={16} />
           Atualizar

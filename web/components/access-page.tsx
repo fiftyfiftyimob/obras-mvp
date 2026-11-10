@@ -5,12 +5,14 @@ import { ArrowLeft, Users } from "lucide-react";
 import Shell from "./shell";
 import { supabase, mensagemErro } from "../lib/supabase";
 
-type Access = { usuario_id: string; email: string; papel: "encarregado" | "cliente"; criado_em: string };
+type AccessRole = "administrador" | "engenheiro" | "supervisor" | "estagiario" | "encarregado" | "cliente";
+type Access = { usuario_id: string; email: string; papel: AccessRole; criado_em: string };
+const roleLabels: Record<AccessRole, string> = { administrador: "Administrador da obra", engenheiro: "Engenheiro", supervisor: "Supervisor", estagiario: "Estagiário", encarregado: "Encarregado", cliente: "Cliente" };
 function AccessContent({ id }: { id: number }) {
   const [name, setName] = useState("");
   const [rows, setRows] = useState<Access[]>([]);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"encarregado" | "cliente">("encarregado");
+  const [role, setRole] = useState<AccessRole>("encarregado");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -51,14 +53,14 @@ function AccessContent({ id }: { id: number }) {
       <h2>Conceder acesso</h2>
       <div className="filters">
         <label>E-mail da conta<input type="email" required maxLength={320} value={email} onChange={e => setEmail(e.target.value)} placeholder="pessoa@exemplo.com" /></label>
-        <label>Perfil<select value={role} onChange={e => setRole(e.target.value as "encarregado" | "cliente")}><option value="encarregado">Encarregado · apontar execução</option><option value="cliente">Cliente · consultar</option></select></label>
+        <label>Perfil<select value={role} onChange={e => setRole(e.target.value as AccessRole)}><option value="administrador">Administrador da obra · acesso total e gestão de acessos</option><option value="engenheiro">Engenheiro · gestão completa da obra</option><option value="supervisor">Supervisor · equipes, tarefas e diário de obra</option><option value="estagiario">Estagiário · consulta e atualização operacional</option><option value="encarregado">Encarregado · apontar execução e impedimentos</option><option value="cliente">Cliente · somente consulta</option></select></label>
         <button className="primary" disabled={busy || loading}>Conceder acesso</button>
       </div>
-      <p className="muted">O gestor mantém a aprovação de conclusões e a administração da obra. O cliente não vê dados pessoais dos colaboradores.</p>
+      <p className="muted">O acesso vale somente para esta obra. Apenas o administrador da obra pode conceder ou remover acessos. Cliente e encarregado não acessam dados pessoais dos colaboradores.</p>
     </form>
     <section className="panel editor access-list"><h2>Pessoas com acesso</h2>
       {loading ? <p>Carregando acessos…</p> : rows.length === 0 ? <div className="empty"><Users size={36} /><p>Nenhum acesso compartilhado.</p></div> :
-      <ul>{rows.map(row => <li key={row.usuario_id}><div><strong>{row.email}</strong><small>{row.papel === "cliente" ? "Cliente · consulta" : "Encarregado · execução"}</small></div><button className="secondary" disabled={busy} onClick={() => revoke(row)}>Remover</button></li>)}</ul>}
+      <ul>{rows.map(row => <li key={row.usuario_id}><div><strong>{row.email}</strong><small>{roleLabels[row.papel]}</small></div><button className="secondary" disabled={busy} onClick={() => revoke(row)}>Remover</button></li>)}</ul>}
     </section>
   </>;
 }

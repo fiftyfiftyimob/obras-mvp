@@ -3,13 +3,15 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import Shell from "./shell";
+import WorkDetail, { type AccessRole } from "./work-detail";
 import { date, labels, formatUnit } from "../lib/operacional";
 import { supabase, mensagemErro } from "../lib/supabase";
 import { PendingReport, pendingReports, queueReport, discardReport, syncReports, isNetworkFailure } from "../lib/offline-reports";
 type Task = { id: number; data: string; turno: string | null; status: string; servico: string; frente: string; equipe: string | null; quantidade_meta: number; quantidade_realizada: number; unidade: string; observacao: string | null };
 type Item = { id: number; frente: string; servico: string; equipe: string | null; quantidade_realizada: number; unidade: string; observacao: string | null };
 type Rdo = { id: number; data: string; clima: string | null; observacao_geral: string | null; itens: Item[] };
-type Detail = { obra: { id: number; nome: string; endereco: string | null; cidade: string | null; estado: string | null; papel: "cliente" | "encarregado" }; tarefas: Task[]; rdos: Rdo[] };
+type Detail = { obra: { id: number; nome: string; endereco: string | null; cidade: string | null; estado: string | null; papel: AccessRole }; tarefas: Task[]; rdos: Rdo[] };
+const MANAGEMENT_ROLES: AccessRole[] = ["administrador", "engenheiro", "supervisor", "estagiario"];
 const actions: Record<string, [string, string][]> = {
   nao_iniciada: [["inicio","Iniciar"],["impedimento","Registrar impedimento"]],
   em_execucao: [["producao","Apontar produção"],["pausa","Pausar"],["impedimento","Registrar impedimento"],["solicitacao_conclusao","Solicitar conclusão"]],
@@ -19,6 +21,7 @@ const actions: Record<string, [string, string][]> = {
 const motives = [["falta_material","Falta de material"],["falta_ferramenta","Falta de ferramenta"],["frente_ocupada","Frente ocupada"],["projeto_pendente","Projeto pendente"],["chuva","Chuva"],["espera_equipe","Espera de equipe"],["seguranca","Segurança"],["outro","Outro"]];
 function SharedDetail({ id }: { id: number }) {
   const [data, setData] = useState<Detail | null>(null);
+  const [accessRole, setAccessRole] = useState<AccessRole | null>(null);
   const [uid, setUid] = useState("");
   const [pending, setPending] = useState<PendingReport[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,6 +35,24 @@ function SharedDetail({ id }: { id: number }) {
   const [observation, setObservation] = useState("");
   const load = useCallback(async () => {
     setError("");
+    const access = await supabase.rpc("minhas_obras_compartilhadas");
+    if (access.error) {
+      setError(mensagemErro(access.error));
+      setLoading(false);
+      return;
+    }
+    const assignment = (access.data || []).find((row: { id: number }) => Number(row.id) === id);
+    if (!assignment) {
+      setError("Você não tem acesso a esta obra.");
+      setLoading(false);
+      return;
+    }
+    const role = assignment.papel as AccessRole;
+    setAccessRole(role);
+    if (MANAGEMENT_ROLES.includes(role)) {
+      setLoading(false);
+      return;
+    }
     const result = await supabase.rpc("detalhe_obra_compartilhada", { p_obra: id });
     if (result.error) setError(mensagemErro(result.error));
     else setData(result.data as Detail);
@@ -97,7 +118,7 @@ function SharedDetail({ id }: { id: number }) {
     {notice && <p className="alert success" role="status">{notice}</p>}
     {pending.length > 0 && <section className="panel editor offline-pending"><h2>Apontamentos neste dispositivo ({pending.length})</h2><p className="muted">São enviados quando a conexão voltar. Mantenha este navegador até confirmar a sincronização.</p><button className="secondary" disabled={busy || (typeof navigator !== "undefined" && !navigator.onLine)} onClick={retry}>Sincronizar agora</button><ul>{pending.map(row => <li key={row.id}><div><strong>{labels[row.tipo] || row.tipo}</strong><small>{new Date(row.criadoEm).toLocaleString("pt-BR")} · tarefa # {row.tarefaId}</small>{row.erro && <span className="alert error">{row.erro}</span>}</div><button className="secondary" disabled={busy} onClick={() => { if (window.confirm("Descartar este apontamento ainda não sincronizado?")) discardReport(uid, row.id); }}>Descartar</button></li>)}</ul></section>}
     {loading ? <p>Carregando…</p> : data && <>
-      <p className="notice">{data.obra.papel === "cliente" ? "Acesso de consulta: acompanhe tarefas e diários desta obra." : "Acesso de encarregado: registre a execução e solicite a validação ao gestor."}</p>
+      <p className="notice">{data.obra.papel === "cliente" ? "Acesso de consulta: acompanhe tarefas e diários desta obra." : "Acesso de encarregado: consulte as tarefas atribuídas, registre a execução e informe impedimentos."}</p>
       <nav className="tabs shared-tabs" aria-label="Áreas compartilhadas"><button className={tab === "tarefas" ? "active" : ""} onClick={() => setTab("tarefas")}>Tarefas</button><button className={tab === "rdos" ? "active" : ""} onClick={() => setTab("rdos")}>Diário de obra</button></nav>
       {tab === "tarefas" && <div className="shared-list">{data.tarefas.length === 0 ? <div className="empty"><h2>Nenhuma tarefa</h2></div> : data.tarefas.map(task => <article className="panel editor" key={task.id}>
         <div className="section-heading"><div><small>{date(task.data)} · {task.turno || "Dia inteiro"}</small><h2>{task.servico}</h2><p className="muted">{task.frente}{task.equipe ? ` · ${task.equipe}` : ""}</p></div><span className={`status ${task.status === "concluida" ? "green" : ""}`}>{labels[task.status] || task.status}</span></div>
