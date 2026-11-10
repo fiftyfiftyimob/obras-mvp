@@ -104,26 +104,26 @@ function normalizedDuplicatePhone(value: unknown) {
     ? digits.slice(2)
     : digits;
 }
-function findDuplicateCollaborator(candidate: Row, existing: Row[], ignoreId?: number) {
+function findDuplicateCollaborator(candidate: Row, existing: Row[], ignoreId?: number): "telefone" | "cpf" | "pessoa" | null {
   const phone = normalizedDuplicatePhone(candidate.telefone);
   const cpf = normalizedDuplicateDigits(candidate.cpf);
   const name = normalizedDuplicateText(candidate.nome);
   const role = normalizedDuplicateText(candidate.funcao);
-  return existing.find((person) => {
-    if (ignoreId && Number(person.id) === Number(ignoreId)) return false;
+  for (const person of existing) {
+    if (ignoreId && Number(person.id) === Number(ignoreId)) continue;
     const personPhone = normalizedDuplicatePhone(person.telefone);
     const personCpf = normalizedDuplicateDigits(person.cpf);
-    if (phone && phone === personPhone) return "telefone" as const;
-    if (cpf && cpf === personCpf) return "cpf" as const;
+    if (phone && phone === personPhone) return "telefone";
+    if (cpf && cpf === personCpf) return "cpf";
     if (name && role && name === normalizedDuplicateText(person.nome) && role === normalizedDuplicateText(person.funcao)) {
       const differentKnownPhone = phone && personPhone && phone !== personPhone;
       const differentKnownCpf = cpf && personCpf && cpf !== personCpf;
-      if (!differentKnownPhone && !differentKnownCpf) return "pessoa" as const;
+      if (!differentKnownPhone && !differentKnownCpf) return "pessoa";
     }
-    return false;
-  });
+  }
+  return null;
 }
-function duplicateCollaboratorMessage(duplicate: ReturnType<typeof findDuplicateCollaborator>, candidate: Row) {
+function duplicateCollaboratorMessage(duplicate: ReturnType<typeof findDuplicateCollaborator>) {
   if (duplicate === "telefone") return "Este telefone já está cadastrado para outro colaborador.";
   if (duplicate === "cpf") return "Este CPF já está cadastrado para outro colaborador.";
   if (duplicate === "pessoa") return "Já existe um colaborador com este nome e função. Confira o cadastro ou informe CPF/telefone para diferenciar pessoas com nomes iguais.";
@@ -245,7 +245,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
     }
     if (t === "colaboradores") {
       const duplicate = findDuplicateCollaborator(row, (data.colaboradores || []) as Row[], original.id);
-      if (duplicate) throw new Error(duplicateCollaboratorMessage(duplicate, row));
+      if (duplicate) throw new Error(duplicateCollaboratorMessage(duplicate));
     }
     if (!original.id) {
       if (
@@ -459,7 +459,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
       const seen = [...((data.colaboradores || []) as Row[])];
       for (const candidate of parsed.rows) {
         const duplicate = findDuplicateCollaborator(candidate as Row, seen);
-        if (duplicate) throw new Error(duplicateCollaboratorMessage(duplicate, candidate as Row));
+        if (duplicate) throw new Error(duplicateCollaboratorMessage(duplicate));
         seen.push(candidate as Row);
       }
       if (!window.confirm("Importar " + parsed.rows.length + " pessoa(s) para esta obra?")) return;
