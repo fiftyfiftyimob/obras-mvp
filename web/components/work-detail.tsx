@@ -31,6 +31,9 @@ import {
   hours,
   formatUnit,
   employmentStatus,
+  isSimulationTask,
+  isSimulationRdo,
+  isSimulationCollaborator,
 } from "../lib/operacional";
 const tabs = [
   ["resumo", "Visão geral", ChartNoAxesCombined],
@@ -139,11 +142,12 @@ type DirectoryFilter = {
   sort: "nome_asc" | "nome_desc" | "recentes";
   funcao: string;
   equipe: string;
+  origem: "todos" | "operacao" | "simulacao";
   page: number;
 };
 const DIRECTORY_PAGE_SIZE = 20;
 const newDirectoryFilter = (): DirectoryFilter => ({
-  query: "", status: "ativos", sort: "nome_asc", funcao: "", equipe: "", page: 1,
+  query: "", status: "ativos", sort: "nome_asc", funcao: "", equipe: "", origem: "todos", page: 1,
 });
 const normalizeSearch = (value: string) =>
   value.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -167,6 +171,8 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
   const [to, setTo] = useState("");
   const [status, setStatus] = useState("");
   const [attentionOnly, setAttentionOnly] = useState(false);
+  const [taskOrigin, setTaskOrigin] = useState<"todos" | "operacao" | "simulacao">("todos");
+  const [rdoOrigin, setRdoOrigin] = useState<"todos" | "operacao" | "simulacao">("todos");
   const [focusedTask, setFocusedTask] = useState<number | null>(null);
   const [deepLinkHandled, setDeepLinkHandled] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -718,6 +724,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
       (!to || t.data <= to) &&
       (!status || t.status === status) &&
       (!attentionOnly || needsAttention(t)) &&
+      (taskOrigin === "todos" || isSimulationTask(t) === (taskOrigin === "simulacao")) &&
       (focusedTask === null || t.id === focusedTask),
   );
   const nextStep = [
@@ -765,6 +772,8 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
         if (filters.status === "ativos" && employment !== "Ativo") return false;
         if (filters.status === "programados" && employment !== "Programado") return false;
         if (filters.status === "arquivados" && employment !== "Desligado") return false;
+        const simulated = isSimulationCollaborator(data, Number(row.id));
+        if (filters.origem !== "todos" && simulated !== (filters.origem === "simulacao")) return false;
         if (filters.funcao && row.funcao !== filters.funcao) return false;
         if (filters.equipe && !(
           String(row.equipe_principal_id) === filters.equipe ||
@@ -865,6 +874,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
       ],
       colaboradores: [
         ["Nome", (r) => r.nome],
+        ["Origem", (r) => isSimulationCollaborator(data, Number(r.id)) ? "Simulação anual" : "Operação"],
         ["Função", (r) => r.funcao],
         ["Admissão inicial", (r) => date(r.data_admissao)],
         ["Situação na data", (r) => employmentStatus(data, r.id, peopleAsOf)],
@@ -928,6 +938,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
       ],
       rdos: [
         ["Data", (r) => date(r.data)],
+        ["Origem", (r) => isSimulationRdo(data, r) ? "Simulação anual" : "Operação"],
         ["Clima", (r) => r.clima || "—"],
         ["Observação", (r) => r.observacao_geral || "—"],
       ],
@@ -1649,6 +1660,17 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
               />
             </label>
             <label>
+              Origem
+              <select
+                value={taskOrigin}
+                onChange={(e) => { setFocusedTask(null); setTaskOrigin(e.target.value as typeof taskOrigin); }}
+              >
+                <option value="todos">Todas as origens</option>
+                <option value="operacao">Operação</option>
+                <option value="simulacao">Simulação anual</option>
+              </select>
+            </label>
+            <label>
               Status
               <select
                 value={status}
@@ -1711,7 +1733,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
                 <div className="section-heading">
                   <div>
                     <small>
-                      {date(t.data)} · {t.turno || "Dia inteiro"}
+                      {date(t.data)} · {t.turno || "Dia inteiro"}{isSimulationTask(t) ? " · Simulação anual" : ""}
                     </small>
                     <h2>{lookup(data, "servicos", t.servico_id)}</h2>
                     <p className="muted">
@@ -1852,7 +1874,22 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
           )}
         </>
       )}
-      {tab === "rdos" && !rdoRow && renderTable("rdos", data.rdos)}
+      {tab === "rdos" && !rdoRow && (
+        <>
+          <div className="filters">
+            <label>Origem
+              <select value={rdoOrigin} onChange={(event) => setRdoOrigin(event.target.value as typeof rdoOrigin)}>
+                <option value="todos">Todas as origens</option>
+                <option value="operacao">Operação</option>
+                <option value="simulacao">Simulação anual</option>
+              </select>
+            </label>
+          </div>
+          {renderTable("rdos", (data.rdos || []).filter((row) =>
+            rdoOrigin === "todos" || isSimulationRdo(data, row) === (rdoOrigin === "simulacao")
+          ))}
+        </>
+      )}
       {tab === "rdos" && rdoRow && (
         <>
           <div className="toolbar">
