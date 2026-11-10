@@ -7,8 +7,8 @@ parallel safe
 set search_path = ''
 as $$
   select case
-    when pg_catalog.regexp_replace(pg_catalog.lower(pg_catalog.btrim(p_unidade)), '\\s+', '', 'g') in ('m2', 'm²') then 'm²'
-    when pg_catalog.regexp_replace(pg_catalog.lower(pg_catalog.btrim(p_unidade)), '\\s+', '', 'g') in ('m3', 'm³') then 'm³'
+    when pg_catalog.lower(pg_catalog.btrim(p_unidade)) in ('m2', 'm²') then 'm²'
+    when pg_catalog.lower(pg_catalog.btrim(p_unidade)) in ('m3', 'm³') then 'm³'
     else pg_catalog.lower(pg_catalog.btrim(p_unidade))
   end;
 $$;
