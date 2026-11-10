@@ -5,9 +5,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 type DelayInterval = {
   start: number;
   end: number;
+  startAt: string;
+  endAt: string;
   open: boolean;
   tarefaId: number;
+  eventoId: number;
   motivo: string;
+  atividade: string;
   observacao: string | null;
 };
 
@@ -22,6 +26,19 @@ type FrontAggregate = {
   taskIds: number[];
 };
 
+export type DelayIncident = {
+  id: string;
+  tarefaId: number;
+  eventoId: number;
+  motivo: string;
+  atividade: string;
+  inicio: string;
+  fim: string;
+  duracaoHoras: number;
+  emAberto: boolean;
+  observacao: string | null;
+};
+
 export type FrontDelayEstimate = {
   frenteId: number;
   frente: string;
@@ -33,7 +50,6 @@ export type FrontDelayEstimate = {
   eventos: number;
   motivos: string[];
   atividades: string[];
-  observacoes: string[];
   tarefaIds: number[];
 };
 
@@ -118,17 +134,18 @@ export function estimarImpactoImpedimentos(
         (event.tipo === "producao" && Number(event.quantidade_realizada || 0) > 0);
       if (!resumed || eventTime < pending.start) return;
 
-      addInterval(task, pending, eventTime, false);
+      addInterval(task, pending, eventTime, false, String(event.timestamp));
       pending = null;
     });
 
-    if (pending) addInterval(task, pending, cutoff, true);
+    if (pending) addInterval(task, pending, cutoff, true, new Date(cutoff).toISOString());
 
     function addInterval(
       currentTask: (typeof tasks)[number],
       blocked: { event: (typeof taskEvents)[number]; start: number },
       end: number,
       open: boolean,
+      endAt: string,
     ) {
       if (end < blocked.start || currentTask.frente_id == null) return;
       const frontId = Number(currentTask.frente_id);
@@ -150,26 +167,34 @@ export function estimarImpactoImpedimentos(
           intervals: [],
           reasons: [],
           activities: [],
-          observations: [],
           taskIds: [],
         };
       }
       const group = aggregates[key];
       const reason = labels[blocked.event.motivo_impedimento] || String(blocked.event.motivo_impedimento);
+      const service = lookup(data, "servicos", currentTask.servico_id);
+      const team = currentTask.equipe_id
+        ? lookup(data, "equipes", currentTask.equipe_id)
+        : "";
+      const activity = [
+        service,
+        currentTask.data ? currentTask.data.split("-").reverse().join("/") : "sem data",
+        team,
+      ].filter(Boolean).join(" · ");
       group.intervals.push({
         start: blocked.start,
         end,
+        startAt: String(blocked.event.timestamp),
+        endAt,
         open,
         tarefaId: Number(currentTask.id),
+        eventoId: Number(blocked.event.id),
         motivo: reason,
+        atividade: activity,
         observacao: blocked.event.observacao || null,
       });
       if (!group.reasons.includes(reason)) group.reasons.push(reason);
-      const service = lookup(data, "servicos", currentTask.servico_id);
-      const activity = `${service} · ${currentTask.data ? currentTask.data.split("-").reverse().join("/") : "sem data"}`;
       if (!group.activities.includes(activity)) group.activities.push(activity);
-      if (blocked.event.observacao && !group.observations.includes(blocked.event.observacao) && group.observations.length < 4)
-        group.observations.push(blocked.event.observacao);
       if (!group.taskIds.includes(Number(currentTask.id))) group.taskIds.push(Number(currentTask.id));
     }
   });
@@ -191,7 +216,18 @@ export function estimarImpactoImpedimentos(
         eventos: group.intervals.length,
         motivos: group.reasons,
         atividades: group.activities,
-        observacoes: group.observations,
+        incidentes: group.intervals.map((interval) => ({
+          id: `${interval.tarefaId}-${interval.eventoId}`,
+          tarefaId: interval.tarefaId,
+          eventoId: interval.eventoId,
+          motivo: interval.motivo,
+          atividade: interval.atividade,
+          inicio: interval.startAt,
+          fim: interval.endAt,
+          duracaoHoras: Math.max(0, interval.end - interval.start) / (60 * 60 * 1000),
+          emAberto: interval.open,
+          observacao: interval.observacao,
+        })),
         tarefaIds: group.taskIds,
       };
     })
