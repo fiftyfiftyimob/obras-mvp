@@ -55,7 +55,7 @@ function parseCollaboratorsCsv(text: string) {
   row.push(cell.trim()); if (row.some(Boolean)) lines.push(row);
   if (lines.length < 2) throw new Error("O CSV precisa ter cabeçalho e pelo menos uma pessoa.");
   const normalize = (value: string) => value.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9]/g, "");
-  const headers = lines[0].map(normalize);
+  const headers = lines[0].map((header, index) => normalize(index === 0 ? header.replace(/^\\uFEFF/, "") : header));
   const index = (names: string[]) => headers.findIndex((header) => names.includes(header));
   const nomeIndex = index(["nome", "nomecompleto"]); const funcaoIndex = index(["funcao", "cargo"]);
   const telefoneIndex = index(["telefone", "celular", "whatsapp"]); const cpfIndex = index(["cpf"]);
@@ -279,7 +279,11 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
           .select()
           .single()
       : await supabase.from(t).insert(row).select().single();
-    if (result.error) throw result.error;
+    if (result.error) {
+      if (t === "colaboradores" && /colaboradores_obra_(telefone|cpf)_unique_idx|colaboradores_obra_duplicado/i.test(result.error.message))
+        throw new Error("Telefone, CPF ou colaborador já cadastrado nesta obra.");
+      throw result.error;
+    }
     setNotice("Registro salvo.");
     await load();
   }
@@ -466,7 +470,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
       setImporting(true);
       const { error: insertError } = await supabase.from("colaboradores").insert(parsed.rows.map((row) => ({ ...row, obra_id: id })));
       if (insertError) {
-        if (/colaboradores_obra_(telefone|cpf)_unique_idx/i.test(insertError.message))
+        if (/colaboradores_obra_(telefone|cpf)_unique_idx|colaboradores_obra_duplicado/i.test(insertError.message))
           throw new Error("Telefone ou CPF duplicado. Revise os colaboradores e tente novamente.");
         throw insertError;
       }
