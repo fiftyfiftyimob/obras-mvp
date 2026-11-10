@@ -55,8 +55,9 @@ begin
     and not (
       (j - array['status', 'atualizado_em', 'unidade']) is not distinct from
         (antigo - array['status', 'atualizado_em', 'unidade'])
-      and private.unidade_canonica(j->>'unidade') is not distinct from
-        private.unidade_canonica(antigo->>'unidade')
+      and antigo->>'unidade' is distinct from 'm²'
+      and j->>'unidade' = 'm²'
+      and private.unidade_canonica(antigo->>'unidade') = 'm²'
     ) then
     raise exception 'Uma tarefa iniciada só pode receber registros de execução.';
   end if;
@@ -64,24 +65,27 @@ begin
   if TG_OP = 'UPDATE'
     and TG_TABLE_NAME = 'servicos'
     and j->>'unidade' is distinct from antigo->>'unidade'
-    and (
-      exists (
+    and not (
+      antigo->>'unidade' is distinct from 'm²'
+      and j->>'unidade' = 'm²'
+      and private.unidade_canonica(antigo->>'unidade') = 'm²'
+      and not exists (
         select 1 from public.tarefas t
         where t.servico_id = new.id
-          and private.unidade_canonica(t.unidade) is distinct from private.unidade_canonica(new.unidade)
+          and private.unidade_canonica(t.unidade) is distinct from 'm²'
       )
-      or exists (
+      and not exists (
         select 1 from public.compromissos_semanais c
         where c.servico_id = new.id
-          and private.unidade_canonica(c.unidade) is distinct from private.unidade_canonica(new.unidade)
+          and private.unidade_canonica(c.unidade) is distinct from 'm²'
       )
-      or exists (
+      and not exists (
         select 1 from public.rdos_itens i
         where i.servico_id = new.id
-          and private.unidade_canonica(i.unidade) is distinct from private.unidade_canonica(new.unidade)
+          and private.unidade_canonica(i.unidade) is distinct from 'm²'
       )
     ) then
-    raise exception 'A unidade do serviço não pode divergir dos registros vinculados.';
+    raise exception 'A unidade de um serviço já utilizado não pode ser alterada; normalize somente registros legados para m².';
   end if;
 
   if j ? 'atualizado_em' then
@@ -132,7 +136,16 @@ begin
       select 1 from public.servicos s
       where s.id = (j->>'servico_id')::integer
         and (s.dono_id is null or s.dono_id = auth.uid())
-        and private.unidade_canonica(s.unidade) = private.unidade_canonica(j->>'unidade')
+        and (
+          s.unidade = j->>'unidade'
+          or (
+            TG_OP = 'UPDATE'
+            and antigo->>'unidade' is distinct from 'm²'
+            and j->>'unidade' = 'm²'
+            and private.unidade_canonica(antigo->>'unidade') = 'm²'
+            and private.unidade_canonica(s.unidade) = 'm²'
+          )
+        )
     ) then
     raise exception 'Serviço ou unidade inválidos.';
   end if;
