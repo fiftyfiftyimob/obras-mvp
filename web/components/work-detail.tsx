@@ -112,6 +112,9 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
   const [bulkMemberSearch, setBulkMemberSearch] = useState("");
   const [bulkMemberIds, setBulkMemberIds] = useState<number[]>([]);
   const [bulkStartDate, setBulkStartDate] = useState(hoje());
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberTeam, setMemberTeam] = useState("");
+  const [memberPage, setMemberPage] = useState(1);
   const [directoryFilters, setDirectoryFilters] = useState<Record<DirectoryTable, DirectoryFilter>>({
     colaboradores: newDirectoryFilter(),
     equipes: newDirectoryFilter(),
@@ -525,6 +528,20 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
       return filters.sort === "nome_desc" ? -order : order;
     });
   }
+  const visibleMemberships = (data.equipe_colaboradores || [])
+    .filter((member) => !memberTeam || String(member.equipe_id) === memberTeam)
+    .filter((member) => !memberSearch.trim() || normalizeSearch([
+      lookup(data, "colaboradores", member.colaborador_id),
+      lookup(data, "equipes", member.equipe_id),
+    ].join(" ")).includes(normalizeSearch(memberSearch.trim())))
+    .sort((a, b) => {
+      const nameOrder = lookup(data, "colaboradores", a.colaborador_id)
+        .localeCompare(lookup(data, "colaboradores", b.colaborador_id), "pt-BR", { sensitivity: "base", numeric: true });
+      return nameOrder || Number(b.id) - Number(a.id);
+    });
+  const memberPages = Math.max(1, Math.ceil(visibleMemberships.length / DIRECTORY_PAGE_SIZE));
+  const currentMemberPage = Math.min(memberPage, memberPages);
+  const memberFirst = (currentMemberPage - 1) * DIRECTORY_PAGE_SIZE;
   function rowActions(table: string, row: Row) {
     if (!canEdit || (table === "servicos" && !row.dono_id)) return null;
     return (
@@ -1141,6 +1158,20 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
               })()}
             </section>
           )}
+          <div className="directory-controls" role="search" aria-label="Filtrar composição das equipes">
+            <label>Pesquisar integrante
+              <input type="search" value={memberSearch} placeholder="Nome da pessoa ou equipe" onChange={(event) => { setMemberSearch(event.target.value); setMemberPage(1); }} />
+            </label>
+            <label>Equipe
+              <select value={memberTeam} onChange={(event) => { setMemberTeam(event.target.value); setMemberPage(1); }}>
+                <option value="">Todas</option>
+                {data.equipes.slice().sort((a, b) => String(a.nome).localeCompare(String(b.nome), "pt-BR")).map((team) => <option key={team.id} value={team.id}>{team.nome}</option>)}
+              </select>
+            </label>
+          </div>
+          <p className="muted directory-count" role="status">
+            {visibleMemberships.length ? "Mostrando " + (memberFirst + 1) + "–" + Math.min(memberFirst + DIRECTORY_PAGE_SIZE, visibleMemberships.length) + " de " + visibleMemberships.length : "Nenhum vínculo encontrado"}.
+          </p>
           <div className="panel table-wrap responsive-table">
             <table>
               <thead>
@@ -1153,7 +1184,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
                 </tr>
               </thead>
               <tbody>
-                {data.equipe_colaboradores.map((m) => (
+                {visibleMemberships.slice(memberFirst, memberFirst + DIRECTORY_PAGE_SIZE).map((m) => (
                   <tr key={m.id}>
                     <td data-label="Equipe">{lookup(data, "equipes", m.equipe_id)}</td>
                     <td data-label="Colaborador">{lookup(data, "colaboradores", m.colaborador_id)}</td>
@@ -1176,12 +1207,17 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
                 ))}
               </tbody>
             </table>
-            {!data.equipe_colaboradores.length && (
+            {!visibleMemberships.length && (
               <p style={{ padding: 20 }} className="muted">
-                Nenhum vínculo registrado.
+                {data.equipe_colaboradores.length ? "Ajuste a pesquisa ou o filtro de equipe." : "Nenhum vínculo registrado."}
               </p>
             )}
           </div>
+          {memberPages > 1 && <nav className="directory-pagination" aria-label="Páginas da composição das equipes">
+            <button className="secondary" disabled={currentMemberPage === 1} onClick={() => setMemberPage(currentMemberPage - 1)}>Anterior</button>
+            <span>Página {currentMemberPage} de {memberPages}</span>
+            <button className="secondary" disabled={currentMemberPage === memberPages} onClick={() => setMemberPage(currentMemberPage + 1)}>Próxima</button>
+          </nav>}
         </>
       )}
       {tab === "compromissos_semanais" && renderTable(tab, data[tab])}
