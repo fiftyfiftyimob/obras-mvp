@@ -22,7 +22,8 @@ export default function RecoveryTracking({
   const [asOf, setAsOf] = useState(today);
   const items = acompanharRecuperacao(data, asOf);
   const delayed = items.filter((item) => item.status === "atrasada").length;
-  const recovered = items.length - delayed;
+  const belowTarget = items.filter((item) => item.status === "meta_nao_atingida").length;
+  const recovered = items.filter((item) => item.status === "recuperada").length;
   const visible = showAll ? items : items.slice(0, 8);
 
   return (
@@ -58,6 +59,11 @@ export default function RecoveryTracking({
               <span>Em atraso</span>
               <strong>{delayed}</strong>
               <small>Metas vencidas ainda não atingidas</small>
+            </div>
+            <div className="panel stat">
+              <span>Meta não atingida</span>
+              <strong>{belowTarget}</strong>
+              <small>Tarefas concluídas abaixo do planejado</small>
             </div>
             <div className="panel stat">
               <span>Recuperadas</span>
@@ -108,6 +114,10 @@ export default function RecoveryTracking({
                     <td data-label="Resultado">
                       {item.status === "atrasada" ? (
                         <span className="status">Atrasada há {item.dias_atraso} dia(s)</span>
+                      ) : item.status === "meta_nao_atingida" ? (
+                        <span className="status">
+                          Tarefas concluídas · meta abaixo
+                        </span>
                       ) : (
                         <span className="status green">
                           Recuperada em {date(item.recuperada_em || "")}
@@ -145,7 +155,7 @@ export default function RecoveryTracking({
         </>
       ) : (
         <p className="notice">
-          Nenhum compromisso semanal vencido até {date(asOf)} com meta pendente ou recuperada.
+          Não há meta semanal vencida e pendente até {date(asOf)}.
           Os prazos posteriores à data de análise não aparecem nesta lista.
         </p>
       )}
