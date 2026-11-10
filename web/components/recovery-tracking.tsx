@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Data, acompanharRecuperacao, date } from "../lib/operacional";
 
 function quantidade(value: number) {
@@ -15,10 +16,11 @@ export default function RecoveryTracking({
   today: string;
   onOpenTask: (taskId: number) => void;
 }) {
+  const [showAll, setShowAll] = useState(false);
   const items = acompanharRecuperacao(data, today);
   const delayed = items.filter((item) => item.status === "atrasada").length;
   const recovered = items.length - delayed;
-  const visible = items.slice(0, 8);
+  const visible = showAll ? items : items.slice(0, 8);
 
   return (
     <section className="panel editor" aria-labelledby="recovery-title">
@@ -118,11 +120,10 @@ export default function RecoveryTracking({
               </tbody>
             </table>
           </div>
-          {items.length > visible.length && (
-            <p className="notice">
-              Exibindo os 8 registros mais recentes/urgentes de {items.length}.
-              Consulte os compromissos e as tarefas para acompanhar os demais.
-            </p>
+          {items.length > 8 && (
+            <button className="secondary" onClick={() => setShowAll((value) => !value)}>
+              {showAll ? "Mostrar apenas 8" : `Mostrar todos os ${items.length} registros`}
+            </button>
           )}
         </>
       ) : (
