@@ -95,6 +95,16 @@ export function formatUnit(value: unknown) {
 export function lookup(data: Data, t: string, id: number | null) {
   return data[t]?.find((r) => r.id === id)?.nome || "—";
 }
+export function employmentStatus(data: Data, collaboratorId: number, asOf: string) {
+  const periods = (data.colaborador_periodos || []).filter((period) => period.colaborador_id === collaboratorId);
+  if (!periods.length) return data.colaboradores?.find((person) => person.id === collaboratorId)?.ativo ? "Ativo" : "Desligado";
+  if (periods.some((period) => period.data_admissao <= asOf && (!period.data_desligamento || period.data_desligamento >= asOf))) return "Ativo";
+  if (periods.some((period) => period.data_admissao > asOf && (!period.data_desligamento || period.data_desligamento >= period.data_admissao))) return "Programado";
+  return "Desligado";
+}
+export function isEmployedOn(data: Data, collaboratorId: number, asOf: string) {
+  return employmentStatus(data, collaboratorId, asOf) === "Ativo";
+}
 export function date(value: string) {
   return value
     ? new Date(value.slice(0, 10) + "T12:00:00").toLocaleDateString("pt-BR")
@@ -188,6 +198,7 @@ export function fieldsFor(table: string, data: Data): Field[] {
           required: true,
         },
         text("cpf", "CPF (opcional)"),
+        { name: "data_admissao", label: "Data de admissão", type: "date", required: true },
         rel("equipe_principal_id", "Equipe principal", "equipes"),
       ];
     case "equipes":
@@ -209,6 +220,16 @@ export function fieldsFor(table: string, data: Data): Field[] {
       ];
     case "transferencia_equipe":
       return [rel("equipe_destino_id", "Equipe de destino", "equipes", true)];
+    case "demissao_colaborador":
+      return [
+        { name: "data_desligamento", label: "Data de desligamento", type: "date", required: true },
+        { name: "motivo_desligamento", label: "Motivo (opcional)", type: "textarea" },
+      ];
+    case "readmissao_colaborador":
+      return [
+        { name: "data_admissao", label: "Data de admissão", type: "date", required: true },
+        rel("equipe_id", "Equipe de retorno (opcional)", "equipes"),
+      ];
     case "servicos":
       return [
         text("nome", "Nome do serviço", true),
@@ -349,6 +370,14 @@ export async function loadData(obra: number): Promise<Data> {
     ),
     allRows(() =>
       supabase
+        .from("colaborador_periodos")
+        .select("*")
+        .eq("obra_id", obra)
+        .order("data_admissao")
+        .order("id"),
+    ),
+    allRows(() =>
+      supabase
         .from("evolucoes_tarefa")
         .select("*,tarefas!inner(obra_id)")
         .eq("tarefas.obra_id", obra)
@@ -374,6 +403,8 @@ export async function loadData(obra: number): Promise<Data> {
   [
     "servicos",
     "equipe_colaboradores",
+    "colaborador_periodos",
+    "colaborador_periodos",
     "evolucoes_tarefa",
     "rdos_itens",
     "evidencias_tarefa",
