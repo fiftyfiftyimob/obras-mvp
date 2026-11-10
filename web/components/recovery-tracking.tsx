@@ -12,14 +12,17 @@ function quantidade(value: number) {
 export default function RecoveryTracking({
   data,
   today,
+  asOf,
+  onAsOfChange,
   onOpenTask,
 }: {
   data: Data;
   today: string;
+  asOf: string;
+  onAsOfChange: (value: string) => void;
   onOpenTask: (taskId: number) => void;
 }) {
   const [showAll, setShowAll] = useState(false);
-  const [asOf, setAsOf] = useState(today);
   const items = acompanharRecuperacao(data, asOf);
   const delayed = items.filter((item) => item.status === "atrasada").length;
   const belowTarget = items.filter((item) => item.status === "meta_nao_atingida").length;
@@ -42,7 +45,7 @@ export default function RecoveryTracking({
             id="recovery-as-of"
             type="date"
             value={asOf}
-            onChange={(event) => setAsOf(event.target.value || today)}
+            onChange={(event) => onAsOfChange(event.target.value || today)}
           />
         </label>
       </div>

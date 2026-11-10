@@ -15,6 +15,7 @@ import {
 import Shell from "./shell";
 import Editor, { Row, Field } from "./editor";
 import RecoveryTracking from "./recovery-tracking";
+import ImpactoImpedimentos from "./impacto-impedimentos";
 
 import WhatsAppDispatch from "./whatsapp-dispatch";
 import { supabase, mensagemErro, hoje } from "../lib/supabase";
@@ -180,6 +181,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
   const [memberTeam, setMemberTeam] = useState("");
   const [memberPage, setMemberPage] = useState(1);
   const [peopleAsOf, setPeopleAsOf] = useState(hoje());
+  const [planningAsOf, setPlanningAsOf] = useState(hoje());
   const [directoryFilters, setDirectoryFilters] = useState<Record<DirectoryTable, DirectoryFilter>>({
     colaboradores: newDirectoryFilter(),
     equipes: newDirectoryFilter(),
@@ -1582,19 +1584,37 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
       {tab === "compromissos_semanais" && (
         <>
           {canEdit && (
-            <RecoveryTracking
-              data={data}
-              today={hoje()}
-              onOpenTask={(taskId) => {
-                if (changeTab("tarefas")) {
-                  setFrom("");
-                  setTo("");
-                  setStatus("");
-                  setAttentionOnly(false);
-                  setFocusedTask(taskId);
-                }
-              }}
-            />
+            <>
+              <RecoveryTracking
+                data={data}
+                today={hoje()}
+                asOf={planningAsOf}
+                onAsOfChange={setPlanningAsOf}
+                onOpenTask={(taskId) => {
+                  if (changeTab("tarefas")) {
+                    setFrom("");
+                    setTo("");
+                    setStatus("");
+                    setAttentionOnly(false);
+                    setFocusedTask(taskId);
+                  }
+                }}
+              />
+              <ImpactoImpedimentos
+                data={data}
+                asOf={planningAsOf}
+                today={hoje()}
+                onOpenTask={(taskId) => {
+                  if (changeTab("tarefas")) {
+                    setFrom("");
+                    setTo("");
+                    setStatus("");
+                    setAttentionOnly(false);
+                    setFocusedTask(taskId);
+                  }
+                }}
+              />
+            </>
           )}
           {renderTable(tab, data[tab])}
         </>
