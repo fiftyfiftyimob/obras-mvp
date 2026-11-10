@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Shell from "./shell";
 import Editor, { Row, Field } from "./editor";
+import RecoveryTracking from "./recovery-tracking";
 
 import WhatsAppDispatch from "./whatsapp-dispatch";
 import { supabase, mensagemErro, hoje } from "../lib/supabase";
@@ -1578,7 +1579,20 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
           </nav>}
         </>
       )}
-      {tab === "compromissos_semanais" && renderTable(tab, data[tab])}
+      {tab === "compromissos_semanais" && (
+        <>
+          {canEdit && (
+            <RecoveryTracking
+              data={data}
+              today={hoje()}
+              onOpenTask={(taskId) => {
+                if (changeTab("tarefas")) setFocusedTask(taskId);
+              }}
+            />
+          )}
+          {renderTable(tab, data[tab])}
+        </>
+      )}
       {tab === "tarefas" && (
         <>
           {dispatch && obra && (
