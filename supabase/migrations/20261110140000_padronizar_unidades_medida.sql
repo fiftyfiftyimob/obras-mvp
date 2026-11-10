@@ -48,7 +48,13 @@ begin
   if TG_OP = 'UPDATE'
     and TG_TABLE_NAME = 'tarefas'
     and antigo->>'status' <> 'nao_iniciada'
-    and (j - array['status', 'atualizado_em']) is distinct from (antigo - array['status', 'atualizado_em']) then
+    and (j - array['status', 'atualizado_em']) is distinct from (antigo - array['status', 'atualizado_em'])
+    and not (
+      (j - array['status', 'atualizado_em', 'unidade']) is not distinct from
+        (antigo - array['status', 'atualizado_em', 'unidade'])
+      and private.unidade_canonica(j->>'unidade') is not distinct from
+        private.unidade_canonica(antigo->>'unidade')
+    ) then
     raise exception 'Uma tarefa iniciada só pode receber registros de execução.';
   end if;
 
