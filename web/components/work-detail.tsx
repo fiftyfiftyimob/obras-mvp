@@ -739,6 +739,9 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
     action: "Ver tarefas",
   };
   const rdoRow = data.rdos?.find((r) => r.id === rdo);
+  const visibleRdos = (data.rdos || []).filter(
+    (row) => rdoOrigin === "todos" || isSimulationRdo(data, row) === (rdoOrigin === "simulacao"),
+  );
   const rdoItems = rdoRow
     ? data.rdos_itens.filter((item) => item.rdo_id === rdoRow.id)
     : [];
@@ -1714,6 +1717,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
                 setFrom("");
                 setTo("");
                 setStatus("");
+                setTaskOrigin("todos");
                 setAttentionOnly(false);
               }}
             >
@@ -1729,8 +1733,8 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
           </div>
           {filtered.length === 0 ? (
             <div className="empty">
-              <h2>{attentionOnly ? "Nenhuma pendência encontrada" : "Nenhuma tarefa neste período"}</h2>
-              <p>{attentionOnly ? "As tarefas atrasadas, bloqueadas ou aguardando aprovação aparecerão aqui." : "Cadastre tarefas ou ajuste os filtros."}</p>
+              <h2>{attentionOnly ? "Nenhuma pendência encontrada" : "Nenhuma tarefa corresponde aos filtros"}</h2>
+              <p>{attentionOnly ? "As tarefas atrasadas, bloqueadas ou aguardando aprovação aparecerão aqui." : "Cadastre tarefas ou ajuste os filtros de período, origem e status."}</p>
             </div>
           ) : (
             filtered.map((t) => (
@@ -1890,9 +1894,9 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
               </select>
             </label>
           </div>
-          {renderTable("rdos", (data.rdos || []).filter((row) =>
-            rdoOrigin === "todos" || isSimulationRdo(data, row) === (rdoOrigin === "simulacao")
-          ))}
+          {visibleRdos.length ? renderTable("rdos", visibleRdos) : data.rdos?.length ? (
+            <div className="empty"><h2>Nenhum diário nesta origem</h2><p>Escolha outra origem para ver os demais diários.</p></div>
+          ) : renderTable("rdos", [])}
         </>
       )}
       {tab === "rdos" && rdoRow && (
