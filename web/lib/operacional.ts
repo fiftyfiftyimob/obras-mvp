@@ -425,6 +425,7 @@ export function progress(data: Data, task: Row) {
     .filter((e) => e.tarefa_id === task.id)
     .reduce((n, e) => n + Number(e.quantidade_realizada || 0), 0);
 }
+
 export function hours(data: Data, task: Row) {
   let start: number | null = null;
   let ms = 0;
