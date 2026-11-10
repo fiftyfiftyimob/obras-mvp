@@ -1586,7 +1586,13 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
               data={data}
               today={hoje()}
               onOpenTask={(taskId) => {
-                if (changeTab("tarefas")) setFocusedTask(taskId);
+                if (changeTab("tarefas")) {
+                  setFrom("");
+                  setTo("");
+                  setStatus("");
+                  setAttentionOnly(false);
+                  setFocusedTask(taskId);
+                }
               }}
             />
           )}
