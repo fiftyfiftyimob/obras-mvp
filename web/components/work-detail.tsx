@@ -16,6 +16,7 @@ import Shell from "./shell";
 import Editor, { Row, Field } from "./editor";
 import RecoveryTracking from "./recovery-tracking";
 import ImpactoImpedimentos from "./impacto-impedimentos";
+import WorkDashboard from "./work-dashboard";
 
 import WhatsAppDispatch from "./whatsapp-dispatch";
 import { supabase, mensagemErro, hoje } from "../lib/supabase";
@@ -44,6 +45,7 @@ const tabs = [
   ["colaboradores", "Pessoas", Users],
   ["equipes", "Equipes", Users],
   ["servicos", "Serviços", ClipboardList],
+  ["dashboard", "Dashboard", ChartNoAxesCombined],
 ] as const;
 function parseCollaboratorsCsv(text: string) {
   const lines: string[][] = []; let row: string[] = []; let cell = ""; let quoted = false;
@@ -152,7 +154,7 @@ const newDirectoryFilter = (): DirectoryFilter => ({
 const normalizeSearch = (value: string) =>
   value.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 export type AccessRole = "administrador" | "engenheiro" | "supervisor" | "estagiario" | "encarregado" | "cliente";
-function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?: AccessRole }) {
+export function WorkManagement({ id, accessRole = "administrador" }: { id: number; accessRole?: AccessRole }) {
   const [obra, setObra] = useState<Row | null>(null);
   const [data, setData] = useState<Data>({});
   const [tab, setTab] = useState("resumo");
@@ -1044,6 +1046,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
             <option value="equipes">Equipes</option>
             <option value="servicos">Serviços</option>
           </optgroup>
+          <option value="dashboard">Dashboard</option>
         </select>
       </label>
       <div role="tablist" className="tabs" aria-label="Módulos da obra"
@@ -1078,7 +1081,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
           {notice}
         </p>
       )}
-      {tab !== "resumo" && (
+      {tab !== "resumo" && tab !== "dashboard" && (
         <div className="section-heading">
           <div>
             <h2>{rdoRow ? `Diário de ${date(rdoRow.data)}` : names[tab]}</h2>
@@ -1207,6 +1210,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
           onCancel={() => setEvent(null)}
         />
       )}
+      {tab === "dashboard" && <WorkDashboard data={data} obraId={id} obraNome={obra.nome} />}
       {tab === "resumo" && (
         <>
           <div className="stats">
@@ -2032,7 +2036,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
 export default function WorkDetail({ id }: { id: number }) {
   return (
     <Shell>
-      <Detail key={id} id={id} />
+      <WorkManagement key={id} id={id} />
     </Shell>
   );
 }
