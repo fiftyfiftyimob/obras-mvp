@@ -406,7 +406,6 @@ export async function loadData(obra: number): Promise<Data> {
     "servicos",
     "equipe_colaboradores",
     "colaborador_periodos",
-    "colaborador_periodos",
     "evolucoes_tarefa",
     "rdos_itens",
     "evidencias_tarefa",
