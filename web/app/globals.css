@@ -1117,3 +1117,24 @@ progress::-webkit-progress-value {
 @media (max-width: 640px) {
   .tabs.shared-tabs { display: flex; gap: 22px; }
 }
+
+.directory-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin: 0 0 12px;
+}
+.directory-controls label { max-width: none; }
+.directory-count { margin: 0 0 12px; }
+.directory-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 18px 0 28px;
+}
+@media (max-width: 640px) {
+  .directory-controls { grid-template-columns: 1fr; }
+  .directory-pagination { justify-content: space-between; gap: 8px; }
+}
