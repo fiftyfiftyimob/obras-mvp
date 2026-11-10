@@ -1371,6 +1371,11 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
                     <option value="ativos">Ativos na data</option><option value="programados">Admissão futura</option><option value="arquivados">Desligados na data</option><option value="todos">Todos</option>
                   </select>
                 </label>
+                {table === "colaboradores" && <label>Origem
+                  <select value={filters.origem} onChange={(event) => updateDirectory(table, { origem: event.target.value as DirectoryFilter["origem"] })}>
+                    <option value="todos">Todas as origens</option><option value="operacao">Operação</option><option value="simulacao">Simulação anual</option>
+                  </select>
+                </label>}
                 {table === "colaboradores" && <>
                   <label>Função
                     <select value={filters.funcao} onChange={(event) => updateDirectory(table, { funcao: event.target.value })}>
@@ -1909,7 +1914,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
           </div>
           <p className="notice rdo-pdf-help">Para compartilhar, escolha “Salvar como PDF” no diálogo de impressão.</p>
           <div className="panel editor rdo-print-heading">
-            <p className="eyebrow">RELATÓRIO DIÁRIO DE OBRA · RDO #{rdoRow.id}</p>
+            <p className="eyebrow">RELATÓRIO DIÁRIO DE OBRA · RDO #{rdoRow.id}{isSimulationRdo(data, rdoRow) ? " · SIMULAÇÃO ANUAL" : ""}</p>
             <h2>{obra.nome} · {date(rdoRow.data)}</h2>
             <p>{[obra.endereco, obra.cidade, obra.estado].filter(Boolean).join(" · ") || "Local não informado"}{obra.cliente_nome ? ` · Cliente: ${obra.cliente_nome}` : ""}</p>
             <p><strong>Clima:</strong> {rdoRow.clima || "Não informado"}</p>
