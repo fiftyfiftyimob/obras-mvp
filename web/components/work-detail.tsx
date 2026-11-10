@@ -216,7 +216,7 @@ function Detail({ id }: { id: number }) {
       payload = {
         dono_id: user.id,
         nome: input.nome,
-        unidade: input.unidade || "un",
+        unidade: formatUnit(input.unidade || "un"),
       };
     }
 
@@ -299,7 +299,7 @@ function Detail({ id }: { id: number }) {
           servico_id: task.servico_id,
           equipe_id: task.equipe_id || null,
           quantidade_realizada: progress(data, task),
-          unidade: task.unidade,
+          unidade: formatUnit(task.unidade),
           observacao: task.observacao || null,
         });
         if (error) throw error;
