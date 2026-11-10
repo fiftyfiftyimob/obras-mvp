@@ -360,7 +360,10 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
         Number(task.servico_id) !== Number(row.servico_id) ||
         (task.equipe_id ? Number(task.equipe_id) : null) !==
           (row.equipe_id ? Number(row.equipe_id) : null) ||
-        formatUnit(task.unidade) !== formatUnit(row.unidade)
+        formatUnit(task.unidade) !==
+          formatUnit(
+            data.servicos?.find((item) => Number(item.id) === Number(row.servico_id))?.unidade,
+          )
       )
         throw new Error("Frente, serviço, equipe e unidade do item precisam corresponder à tarefa vinculada.");
     }
