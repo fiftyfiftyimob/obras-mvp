@@ -72,6 +72,7 @@ export const names: Record<string, string> = {
   tarefas: "Frentes e tarefas do dia",
   rdos: "Diário de obra",
   equipe_colaboradores: "Composição das equipes",
+  transferencia_equipe: "Transferência de equipe",
   rdos_itens: "Itens do diário",
 };
 export function options(data: Data, table: string) {
@@ -206,6 +207,8 @@ export function fieldsFor(table: string, data: Data): Field[] {
         rel("colaborador_id", "Colaborador", "colaboradores", true),
         { name: "data_inicio", label: "Início", type: "date", required: true },
       ];
+    case "transferencia_equipe":
+      return [rel("equipe_destino_id", "Equipe de destino", "equipes", true)];
     case "servicos":
       return [
         text("nome", "Nome do serviço", true),
