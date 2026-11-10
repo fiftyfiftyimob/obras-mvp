@@ -67,6 +67,21 @@ function parseCollaboratorsCsv(text: string) {
   }).filter((row): row is { nome: string; funcao: string; telefone: string | null; cpf: string | null } => Boolean(row));
   return { rows, errors };
 }
+type DirectoryTable = "colaboradores" | "equipes";
+type DirectoryFilter = {
+  query: string;
+  status: "ativos" | "arquivados" | "todos";
+  sort: "nome_asc" | "nome_desc" | "recentes";
+  funcao: string;
+  equipe: string;
+  page: number;
+};
+const DIRECTORY_PAGE_SIZE = 20;
+const newDirectoryFilter = (): DirectoryFilter => ({
+  query: "", status: "ativos", sort: "nome_asc", funcao: "", equipe: "", page: 1,
+});
+const normalizeSearch = (value: string) =>
+  value.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 export type AccessRole = "administrador" | "engenheiro" | "supervisor" | "estagiario" | "encarregado" | "cliente";
 function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?: AccessRole }) {
   const [obra, setObra] = useState<Row | null>(null);
@@ -97,6 +112,16 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
   const [bulkMemberSearch, setBulkMemberSearch] = useState("");
   const [bulkMemberIds, setBulkMemberIds] = useState<number[]>([]);
   const [bulkStartDate, setBulkStartDate] = useState(hoje());
+  const [directoryFilters, setDirectoryFilters] = useState<Record<DirectoryTable, DirectoryFilter>>({
+    colaboradores: newDirectoryFilter(),
+    equipes: newDirectoryFilter(),
+  });
+  function updateDirectory(table: DirectoryTable, patch: Partial<DirectoryFilter>) {
+    setDirectoryFilters((current) => ({
+      ...current,
+      [table]: { ...current[table], ...patch, page: patch.page ?? 1 },
+    }));
+  }
   const load = useCallback(async () => {
     try {
       setError("");
@@ -470,6 +495,36 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
       ? []
       : data.evolucoes_tarefa.filter((e) => e.tarefa_id === history);
   const canEdit = obra.ativo && ["administrador", "engenheiro", "supervisor", "estagiario"].includes(accessRole);
+  function directoryRows(table: DirectoryTable) {
+    const filters = directoryFilters[table];
+    const query = normalizeSearch(filters.query.trim());
+    return (data[table] || []).filter((row) => {
+      if (filters.status === "ativos" && !row.ativo) return false;
+      if (filters.status === "arquivados" && row.ativo) return false;
+      if (table === "colaboradores") {
+        if (filters.funcao && row.funcao !== filters.funcao) return false;
+        if (filters.equipe && !(
+          String(row.equipe_principal_id) === filters.equipe ||
+          (data.equipe_colaboradores || []).some((member) =>
+            String(member.equipe_id) === filters.equipe &&
+            member.colaborador_id === row.id && member.ativo &&
+            member.data_inicio <= hoje() && (!member.data_fim || member.data_fim >= hoje())
+          )
+        )) return false;
+        return !query || normalizeSearch([
+          row.nome, row.funcao, row.telefone,
+          lookup(data, "equipes", row.equipe_principal_id),
+        ].filter(Boolean).join(" ")).includes(query);
+      }
+      return !query || normalizeSearch([row.nome, row.descricao].filter(Boolean).join(" ")).includes(query);
+    }).sort((a, b) => {
+      if (filters.sort === "recentes") return Number(b.id) - Number(a.id);
+      const order = String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR", {
+        sensitivity: "base", numeric: true,
+      });
+      return filters.sort === "nome_desc" ? -order : order;
+    });
+  }
   function rowActions(table: string, row: Row) {
     if (!canEdit || (table === "servicos" && !row.dono_id)) return null;
     return (
@@ -928,13 +983,13 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
       )}
       {["frentes", "colaboradores", "equipes", "servicos"].includes(tab) && (
         <>
-          <div className="toolbar">
-            <button
+          {tab !== "equipes" && <div className="toolbar">
+            {tab !== "colaboradores" && <button
               className="secondary"
               onClick={() => setShowArchived(!showArchived)}
             >
               {showArchived ? "Mostrar apenas ativos" : "Incluir arquivados"}
-            </button>
+            </button>}
             {tab === "colaboradores" && canEdit && (
               <>
                 <label className="secondary" style={{ cursor: importing ? "wait" : "pointer" }}>
@@ -947,11 +1002,57 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
                 <small className="muted">Colunas obrigatórias: nome e funcao.</small>
               </>
             )}
-          </div>
-          {renderTable(
-            tab,
-            data[tab].filter((r) => showArchived || r.ativo),
-          )}
+          </div>}
+          {tab === "colaboradores" || tab === "equipes" ? (() => {
+            const table = tab as DirectoryTable;
+            const filters = directoryFilters[table];
+            const rows = directoryRows(table);
+            const pages = Math.max(1, Math.ceil(rows.length / DIRECTORY_PAGE_SIZE));
+            const page = Math.min(filters.page, pages);
+            const first = (page - 1) * DIRECTORY_PAGE_SIZE;
+            return <>
+              <div className="directory-controls" role="search" aria-label={table === "colaboradores" ? "Filtrar pessoas" : "Filtrar equipes"}>
+                <label>Pesquisar {table === "colaboradores" ? "pessoa" : "equipe"}
+                  <input type="search" value={filters.query} placeholder={table === "colaboradores" ? "Nome, função, telefone ou equipe" : "Nome ou descrição"} onChange={(event) => updateDirectory(table, { query: event.target.value })} />
+                </label>
+                <label>Situação
+                  <select value={filters.status} onChange={(event) => updateDirectory(table, { status: event.target.value as DirectoryFilter["status"] })}>
+                    <option value="ativos">Ativos</option><option value="arquivados">Arquivados</option><option value="todos">Todos</option>
+                  </select>
+                </label>
+                {table === "colaboradores" && <>
+                  <label>Função
+                    <select value={filters.funcao} onChange={(event) => updateDirectory(table, { funcao: event.target.value })}>
+                      <option value="">Todas</option>
+                      {Array.from(new Set(data.colaboradores.map((person) => String(person.funcao || "")).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR")).map((funcao) => <option key={funcao} value={funcao}>{funcao}</option>)}
+                    </select>
+                  </label>
+                  <label>Equipe
+                    <select value={filters.equipe} onChange={(event) => updateDirectory(table, { equipe: event.target.value })}>
+                      <option value="">Todas</option>
+                      {data.equipes.slice().sort((a, b) => String(a.nome).localeCompare(String(b.nome), "pt-BR")).map((team) => <option key={team.id} value={team.id}>{team.nome}</option>)}
+                    </select>
+                  </label>
+                </>}
+                <label>Ordenar
+                  <select value={filters.sort} onChange={(event) => updateDirectory(table, { sort: event.target.value as DirectoryFilter["sort"] })}>
+                    <option value="nome_asc">Nome A–Z</option><option value="nome_desc">Nome Z–A</option><option value="recentes">Mais recentes</option>
+                  </select>
+                </label>
+              </div>
+              <p className="muted directory-count" role="status">
+                {rows.length ? "Mostrando " + (first + 1) + "–" + Math.min(first + DIRECTORY_PAGE_SIZE, rows.length) + " de " + rows.length : "Nenhum resultado"}
+                {" "}{table === "colaboradores" ? "pessoas" : "equipes"}.
+              </p>
+              {rows.length ? renderTable(table, rows.slice(first, first + DIRECTORY_PAGE_SIZE)) :
+                (data[table].length ? <div className="empty"><h2>Nenhum resultado</h2><p>Ajuste a pesquisa ou os filtros.</p><button className="secondary" onClick={() => updateDirectory(table, newDirectoryFilter())}>Limpar filtros</button></div> : renderTable(table, []))}
+              {pages > 1 && <nav className="directory-pagination" aria-label={table === "colaboradores" ? "Páginas de pessoas" : "Páginas de equipes"}>
+                <button className="secondary" disabled={page === 1} onClick={() => updateDirectory(table, { page: page - 1 })}>Anterior</button>
+                <span>Página {page} de {pages}</span>
+                <button className="secondary" disabled={page === pages} onClick={() => updateDirectory(table, { page: page + 1 })}>Próxima</button>
+              </nav>}
+            </>;
+          })() : renderTable(tab, data[tab].filter((r) => showArchived || r.ativo))}
         </>
       )}
       {tab === "equipes" && (
