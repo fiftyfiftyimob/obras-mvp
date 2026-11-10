@@ -2,6 +2,11 @@ import type { Data } from "../lib/operacional";
 import { date } from "../lib/operacional";
 import { estimarImpactoImpedimentos } from "../lib/impacto-prazo";
 
+function dataHora(value: string) {
+  const parsed = new Date(value.endsWith("Z") ? value : value + "Z");
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString("pt-BR");
+}
+
 function formatarDuracao(totalHoras: number) {
   const minutos = Math.max(0, Math.round(totalHoras * 60));
   const dias = Math.floor(minutos / (24 * 60));
@@ -69,13 +74,26 @@ export default function ImpactoImpedimentos({
                     <strong>{item.motivos.join(", ")}</strong>
                     <br />
                     <small>{item.atividades.join("; ")}</small>
-                    {item.observacoes.length > 0 && (
+                    <details>
+                      <summary>Detalhes dos {item.eventos} impedimentos</summary>
                       <ul>
-                        {item.observacoes.map((observation, index) => (
-                          <li key={index}><small>{observation}</small></li>
+                        {item.incidentes.map((incident) => (
+                          <li key={incident.id}>
+                            <small>
+                              {incident.motivo} · {incident.atividade}
+                              <br />
+                              Início: {dataHora(incident.inicio)}
+                              <br />
+                              {incident.emAberto
+                                ? "Em aberto até " + dataHora(incident.fim)
+                                : "Retomada: " + dataHora(incident.fim)}
+                              {" · "}{formatarDuracao(incident.duracaoHoras)}
+                              {incident.observacao ? <><br />{incident.observacao}</> : null}
+                            </small>
+                          </li>
                         ))}
                       </ul>
-                    )}
+                    </details>
                   </td>
                   <td data-label="Duração registrada">
                     {formatarDuracao(item.horasImpedidas)}
