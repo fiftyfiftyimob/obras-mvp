@@ -101,9 +101,9 @@ export default function RecoveryTracking({
                       {quantidade(item.meta)} / {quantidade(item.executado)} {item.unidade}
                       <br />
                       <small>
-                        {item.status === "atrasada"
-                          ? `Faltam ${quantidade(Math.max(0, item.meta - item.executado))} ${item.unidade}`
-                          : `Meta atingida ${quantidade(item.executado)} ${item.unidade}`}
+                        {item.status === "recuperada"
+                          ? `Meta atingida ${quantidade(item.executado)} ${item.unidade}`
+                          : `Faltam ${quantidade(Math.max(0, item.meta - item.executado))} ${item.unidade}`}
                       </small>
                     </td>
                     <td data-label="Impedimento e retomada">
