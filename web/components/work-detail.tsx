@@ -41,21 +41,21 @@ const tabs = [
 ] as const;
 function parseCollaboratorsCsv(text: string) {
   const lines: string[][] = []; let row: string[] = []; let cell = ""; let quoted = false;
-  const firstBreak = text.search(/[\\r\\n]/); const firstLine = firstBreak >= 0 ? text.slice(0, firstBreak) : text;
+  const firstBreak = text.search(/[\r\n]/); const firstLine = firstBreak >= 0 ? text.slice(0, firstBreak) : text;
   const delimiter = firstLine.includes(";") ? ";" : ",";
   for (let i = 0; i < text.length; i += 1) {
     const char = text[i];
     if (char === '"') { if (quoted && text[i + 1] === '"') { cell += '"'; i += 1; } else quoted = !quoted; }
     else if (!quoted && char === delimiter) { row.push(cell.trim()); cell = ""; }
-    else if (!quoted && (char === "\\n" || char === "\\r")) {
-      if (char === "\\r" && text[i + 1] === "\\n") i += 1;
+    else if (!quoted && (char === "\n" || char === "\r")) {
+      if (char === "\r" && text[i + 1] === "\n") i += 1;
       row.push(cell.trim()); if (row.some(Boolean)) lines.push(row); row = []; cell = "";
     } else cell += char;
   }
   row.push(cell.trim()); if (row.some(Boolean)) lines.push(row);
   if (lines.length < 2) throw new Error("O CSV precisa ter cabeçalho e pelo menos uma pessoa.");
-  const normalize = (value: string) => value.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9]/g, "");
-  const headers = lines[0].map((header, index) => normalize(index === 0 ? header.replace(/^\\uFEFF/, "") : header));
+  const normalize = (value: string) => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  const headers = lines[0].map((header, index) => normalize(index === 0 ? header.replace(/^\uFEFF/, "") : header));
   const index = (names: string[]) => headers.findIndex((header) => names.includes(header));
   const nomeIndex = index(["nome", "nomecompleto"]); const funcaoIndex = index(["funcao", "cargo"]);
   const telefoneIndex = index(["telefone", "celular", "whatsapp"]); const cpfIndex = index(["cpf"]);
@@ -64,7 +64,7 @@ function parseCollaboratorsCsv(text: string) {
   const rows = lines.slice(1).map((values, offset) => {
     const line = offset + 2; const nome = values[nomeIndex]?.trim() || ""; const funcao = values[funcaoIndex]?.trim() || "";
     if (!nome || !funcao) { errors.push("Linha " + line + ": nome e função são obrigatórios."); return null; }
-    return { nome, funcao, telefone: telefoneIndex >= 0 ? values[telefoneIndex]?.trim() || null : null, cpf: cpfIndex >= 0 ? values[cpfIndex]?.replace(/\\D/g, "") || null : null };
+    return { nome, funcao, telefone: telefoneIndex >= 0 ? values[telefoneIndex]?.trim() || null : null, cpf: cpfIndex >= 0 ? values[cpfIndex]?.replace(/\D/g, "") || null : null };
   }).filter((row): row is { nome: string; funcao: string; telefone: string | null; cpf: string | null } => Boolean(row));
   return { rows, errors };
 }
@@ -92,11 +92,11 @@ function normalizedDuplicateText(value: unknown) {
     .trim()
     .toLocaleLowerCase("pt-BR")
     .normalize("NFD")
-    .replace(/[\\u0300-\\u036f]/g, "")
-    .replace(/\\s+/g, " ");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
 }
 function normalizedDuplicateDigits(value: unknown) {
-  return String(value ?? "").replace(/\\D/g, "");
+  return String(value ?? "").replace(/\D/g, "");
 }
 function normalizedDuplicatePhone(value: unknown) {
   const digits = normalizedDuplicateDigits(value);
