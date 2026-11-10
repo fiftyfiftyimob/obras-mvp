@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Shell from "./shell";
 import Editor, { Row, Field } from "./editor";
+
 import WhatsAppDispatch from "./whatsapp-dispatch";
 import { supabase, mensagemErro, hoje } from "../lib/supabase";
 import {
@@ -66,6 +67,67 @@ function parseCollaboratorsCsv(text: string) {
     return { nome, funcao, telefone: telefoneIndex >= 0 ? values[telefoneIndex]?.trim() || null : null, cpf: cpfIndex >= 0 ? values[cpfIndex]?.replace(/\\D/g, "") || null : null };
   }).filter((row): row is { nome: string; funcao: string; telefone: string | null; cpf: string | null } => Boolean(row));
   return { rows, errors };
+}
+async function parseCollaboratorsFile(file: File) {
+  if (file.size > 10 * 1024 * 1024)
+    throw new Error("O arquivo deve ter no máximo 10 MB.");
+  const filename = file.name.toLowerCase();
+  let csv: string;
+  if (filename.endsWith(".csv")) {
+    csv = await file.text();
+  } else if (filename.endsWith(".xlsx") || filename.endsWith(".xls")) {
+    const XLSX = await import("xlsx");
+    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = sheetName ? workbook.Sheets[sheetName] : undefined;
+    if (!sheet) throw new Error("A planilha não tem uma primeira aba com dados.");
+    csv = XLSX.utils.sheet_to_csv(sheet);
+  } else {
+    throw new Error("Selecione um arquivo CSV, XLSX ou XLS.");
+  }
+  return parseCollaboratorsCsv(csv);
+}
+function normalizedDuplicateText(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/[\\u0300-\\u036f]/g, "")
+    .replace(/\\s+/g, " ");
+}
+function normalizedDuplicateDigits(value: unknown) {
+  return String(value ?? "").replace(/\\D/g, "");
+}
+function normalizedDuplicatePhone(value: unknown) {
+  const digits = normalizedDuplicateDigits(value);
+  return digits.startsWith("55") && (digits.length === 12 || digits.length === 13)
+    ? digits.slice(2)
+    : digits;
+}
+function findDuplicateCollaborator(candidate: Row, existing: Row[], ignoreId?: number) {
+  const phone = normalizedDuplicatePhone(candidate.telefone);
+  const cpf = normalizedDuplicateDigits(candidate.cpf);
+  const name = normalizedDuplicateText(candidate.nome);
+  const role = normalizedDuplicateText(candidate.funcao);
+  return existing.find((person) => {
+    if (ignoreId && Number(person.id) === Number(ignoreId)) return false;
+    const personPhone = normalizedDuplicatePhone(person.telefone);
+    const personCpf = normalizedDuplicateDigits(person.cpf);
+    if (phone && phone === personPhone) return "telefone" as const;
+    if (cpf && cpf === personCpf) return "cpf" as const;
+    if (name && role && name === normalizedDuplicateText(person.nome) && role === normalizedDuplicateText(person.funcao)) {
+      const differentKnownPhone = phone && personPhone && phone !== personPhone;
+      const differentKnownCpf = cpf && personCpf && cpf !== personCpf;
+      if (!differentKnownPhone && !differentKnownCpf) return "pessoa" as const;
+    }
+    return false;
+  });
+}
+function duplicateCollaboratorMessage(duplicate: ReturnType<typeof findDuplicateCollaborator>, candidate: Row) {
+  if (duplicate === "telefone") return "Este telefone já está cadastrado para outro colaborador.";
+  if (duplicate === "cpf") return "Este CPF já está cadastrado para outro colaborador.";
+  if (duplicate === "pessoa") return "Já existe um colaborador com este nome e função. Confira o cadastro ou informe CPF/telefone para diferenciar pessoas com nomes iguais.";
+  return "";
 }
 type DirectoryTable = "colaboradores" | "equipes";
 type DirectoryFilter = {
@@ -180,6 +242,10 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
       if (digits.length !== 11)
         throw new Error("O CPF deve conter 11 números.");
       row.cpf = digits;
+    }
+    if (t === "colaboradores") {
+      const duplicate = findDuplicateCollaborator(row, (data.colaboradores || []) as Row[], original.id);
+      if (duplicate) throw new Error(duplicateCollaboratorMessage(duplicate, row));
     }
     if (!original.id) {
       if (
@@ -386,13 +452,24 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
     const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
     setError("");
     try {
-      const parsed = parseCollaboratorsCsv(await file.text());
+      const parsed = await parseCollaboratorsFile(file);
       if (parsed.errors.length) throw new Error(parsed.errors.slice(0, 5).join(" "));
       if (!parsed.rows.length) throw new Error("Nenhuma pessoa válida foi encontrada.");
+      if (parsed.rows.length > 2000) throw new Error("A planilha pode conter no máximo 2.000 pessoas.");
+      const seen = [...((data.colaboradores || []) as Row[])];
+      for (const candidate of parsed.rows) {
+        const duplicate = findDuplicateCollaborator(candidate as Row, seen);
+        if (duplicate) throw new Error(duplicateCollaboratorMessage(duplicate, candidate as Row));
+        seen.push(candidate as Row);
+      }
       if (!window.confirm("Importar " + parsed.rows.length + " pessoa(s) para esta obra?")) return;
       setImporting(true);
       const { error: insertError } = await supabase.from("colaboradores").insert(parsed.rows.map((row) => ({ ...row, obra_id: id })));
-      if (insertError) throw insertError;
+      if (insertError) {
+        if (/colaboradores_obra_(telefone|cpf)_unique_idx/i.test(insertError.message))
+          throw new Error("Telefone ou CPF duplicado. Revise os colaboradores e tente novamente.");
+        throw insertError;
+      }
       setNotice(parsed.rows.length + " pessoa(s) importada(s) com sucesso."); await load();
     } catch (cause) { setError(mensagemErro(cause)); } finally { setImporting(false); }
   }
@@ -1041,7 +1118,7 @@ function Detail({ id, accessRole = "administrador" }: { id: number; accessRole?:
               <>
                 <label className="secondary" style={{ cursor: importing ? "wait" : "pointer" }}>
                   {importing ? "Importando…" : "Importar CSV"}
-                  <input type="file" accept=".csv,text/csv" disabled={importing} onChange={importCollaborators} style={{ display: "none" }} />
+                  <input type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" disabled={importing} onChange={importCollaborators} style={{ display: "none" }} />
                 </label>
                 <button className="secondary" onClick={downloadCollaboratorsTemplate} disabled={importing}>
                   Baixar modelo CSV
