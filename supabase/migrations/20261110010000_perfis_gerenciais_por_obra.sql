@@ -33,7 +33,7 @@ grant execute on function private.papel_obra(integer) to authenticated;
 create or replace function private.possui_obra(obra integer)
 returns boolean
 language sql stable security definer set search_path = ''
-as $
+as $$
   select coalesce(private.papel_obra(obra) in
     ('administrador','engenheiro','supervisor','estagiario'), false);
 $$;
@@ -133,9 +133,10 @@ begin
   if p_quantidade is null or p_quantidade<0 then raise exception 'Quantidade inválida.'; end if;
   if p_tipo='inicio' and tarefa.status='nao_iniciada' then novo_status:='em_execucao';
   elsif p_tipo='pausa' and tarefa.status='em_execucao' then novo_status:='pausada';
-  elsif p_tipo='retomada' and tarefa.status in ('pausada','bloqueada') then novo_status:='em_execucao';
-  elsif p_tipo='conclusao' and tarefa.status='em_execucao' then novo_status:='concluida';
+  elsif p_tipo='retomada' and tarefa.status in ('pausada','bloqueada','aguardando_validacao') then novo_status:='em_execucao';
+  elsif p_tipo='conclusao' and tarefa.status in ('em_execucao','aguardando_validacao') then novo_status:='concluida';
   elsif p_tipo='impedimento' and tarefa.status in ('nao_iniciada','em_execucao','pausada') then novo_status:='bloqueada';
+  elsif p_tipo='producao' and tarefa.status='em_execucao' then novo_status:=tarefa.status;
   else raise exception 'Esta ação não é permitida no estado atual da tarefa.'; end if;
   if p_tipo='impedimento' and (p_motivo is null or p_motivo not in
     ('falta_material','falta_ferramenta','frente_ocupada','projeto_pendente','chuva','espera_equipe','seguranca','outro')) then
@@ -143,6 +144,9 @@ begin
   end if;
   if p_tipo in ('inicio','retomada') and p_quantidade<>0 then
     raise exception 'Registre produção ao pausar, concluir ou informar impedimento.';
+  end if;
+  if p_tipo='producao' and p_quantidade<=0 then
+    raise exception 'Informe uma quantidade maior que zero.';
   end if;
   insert into public.evolucoes_tarefa(tarefa_id,autor_id,tipo,quantidade_realizada,motivo_impedimento,observacao)
   values(p_tarefa,auth.uid(),p_tipo,p_quantidade,
