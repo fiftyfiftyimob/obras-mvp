@@ -36,7 +36,7 @@ def quantity_rows(model, element):
                 continue
             field, project_unit_type = QUANTITIES[kind]
             source_unit = getattr(quantity, "Unit", None)
-            if source_unit is None and project_unit_type:
+            if source_unit is None and project_unit_type and model.by_type("IfcProject"):
                 source_unit = ifcopenshell.util.unit.get_project_unit(model, project_unit_type)
             symbol = ifcopenshell.util.unit.get_unit_symbol(source_unit) if source_unit else None
             value = getattr(quantity, field, None)
