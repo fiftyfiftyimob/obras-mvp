@@ -6,6 +6,7 @@ import { date, labels, type Data } from "../lib/operacional";
 import { localDay, makeDashboard, METHODOLOGY, type DashboardFilter, type DashboardModel } from "../lib/dashboard-obra";
 import { exportDashboard } from "../lib/dashboard-export";
 import styles from "./work-dashboard.module.css";
+import DashboardSuprimentos from "./dashboard-suprimentos";
 
 const number = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 const fmt = (v: number | null) => v === null ? "—" : number.format(v);
@@ -87,7 +88,7 @@ function Distribution({ title, rows, translate = false, warm = false }: { title:
   </section>;
 }
 
-export default function WorkDashboard({ data, obraId, obraNome }: { data: Data; obraId: number; obraNome: string }) {
+export default function WorkDashboard({ data, obraId, obraNome, accessRole }: { data: Data; obraId: number; obraNome: string; accessRole: string }) {
   const [now] = useState(() => Date.now());
   const today = localDay(now);
   const [filter, setFilter] = useState<DashboardFilter>({ ate: today, origem: "todos", frente: "", servico: "", equipe: "" });
@@ -177,6 +178,7 @@ export default function WorkDashboard({ data, obraId, obraNome }: { data: Data; 
       <Distribution title="Motivos de impedimento" rows={model.impedimentos} translate warm />
       <Distribution title="Clima nos diários" rows={model.clima} />
     </div>
+    <DashboardSuprimentos obraId={obraId} obraNome={obraNome} accessRole={accessRole} />
     <details className={"panel editor " + styles.details}><summary>Como o avanço é calculado</summary>
       <p>{METHODOLOGY}</p>
       <p className="muted">O percentual é uma estimativa do escopo cadastrado, sem pesos por orçamento. Alterações no planejamento recalculam o histórico. A situação e as horas usam o histórico de apontamentos disponível; a quantidade executada pode exceder a meta na tabela.</p>

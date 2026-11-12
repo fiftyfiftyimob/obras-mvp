@@ -1249,7 +1249,7 @@ export function WorkManagement({ id, accessRole = "administrador" }: { id: numbe
           onCancel={() => setEvent(null)}
         />
       )}
-      {tab === "dashboard" && <WorkDashboard data={data} obraId={id} obraNome={obra.nome} />}
+      {tab === "dashboard" && <WorkDashboard data={data} obraId={id} obraNome={obra.nome} accessRole={accessRole} />}
       {tab === "resumo" && (
         <>
           <div className="stats">

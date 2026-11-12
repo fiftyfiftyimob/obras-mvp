@@ -36,7 +36,7 @@ function SharedDashboard({ id, nome }: { id: number; nome: string }) {
     return () => { active = false; };
   }, [id, attempt]);
   if (error) return <p className="alert error" role="alert">{error} <button type="button" onClick={() => retry(n => n + 1)}>Tentar novamente</button></p>;
-  return dashboard ? <WorkDashboard data={dashboard} obraId={id} obraNome={nome} /> : <p role="status">Carregando dashboard…</p>;
+  return dashboard ? <WorkDashboard data={dashboard} obraId={id} obraNome={nome} accessRole="cliente" /> : <p role="status">Carregando dashboard…</p>;
 }
 type SharedTab = "tarefas" | "rdos" | "dashboard";
 function SharedDetail({ id }: { id: number }) {
