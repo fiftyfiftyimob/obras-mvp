@@ -158,9 +158,16 @@ export default function BimProject({ obraId, accessRole, ativo }: {
       <h3>Enviar revisão IFC</h3>
       <div className="form-grid">
         <label>Revisão <input value={revision} maxLength={80} onChange={(event) => setRevision(event.target.value)} placeholder="Ex.: Estrutura R01" /></label>
-        <label>Arquivo .ifc <input type="file" accept=".ifc" onChange={(event) => setFile(event.target.files?.[0] || null)} /></label>
+        <label>Arquivo .ifc <input type="file" accept=".ifc" onChange={(event) => {
+          const selected = event.target.files?.[0] || null;
+          setFile(selected);
+          if (selected && !revision.trim()) {
+            const suggested = selected.name.replace(/\\.ifc$/i, "").replace(/[-_]+/g, " ").trim().slice(0, 80);
+            setRevision(suggested);
+          }
+        }} /></label>
       </div>
-      <p className="muted">Arquivo privado, até 200 MB. O envio grande pode ser retomado após uma interrupção.</p>
+      <p className="muted">Arquivo privado, até 200 MB. A revisão é preenchida pelo nome do arquivo e pode ser ajustada antes do envio. Arquivos grandes podem ser retomados após uma interrupção.</p>
       <button className="primary" disabled={busy || !file} onClick={() => void send()}>
         {busy ? "Enviando " + progress + "%" : "Importar IFC"}
       </button>
