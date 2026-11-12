@@ -119,7 +119,21 @@ export default function BimProject({ obraId, accessRole, ativo }: {
         .update({ estado: "pendente" }).eq("id", existing.id)
         .eq("estado", "aguardando_envio").select("id").single();
       if (queued.error) throw queued.error;
-      setNotice("Arquivo enviado. A extração entrou na fila.");
+      setNotice("Arquivo enviado. Iniciando a extração…");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (token) {
+        const processResponse = await fetch("/api/bim_process", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+          body: JSON.stringify({ import_id: existing.id }),
+        });
+        if (!processResponse.ok) {
+          const detail = await processResponse.text();
+          throw new Error("A extração ficou na fila para uma nova tentativa. " + detail.slice(0, 160));
+        }
+      }
+      setNotice("Arquivo enviado e extração concluída. Atualizando a conferência.");
       setSelectedId(existing.id);
       setFile(null); setRevision("");
       await refresh();
