@@ -6,7 +6,7 @@ const endpoint = projectUrl.replace(".supabase.co", ".storage.supabase.co") + "/
 
 function metadata(fields: Record<string, string>) {
   return Object.entries(fields).map(([key, value]) =>
-    key + " " + btoa(String.fromCharCode(...new TextEncoder().encode(value)))
+    key + " " + btoa(String.fromCharCode(...Array.from(new TextEncoder().encode(value))))
   ).join(",");
 }
 
@@ -60,10 +60,10 @@ export async function uploadIfc(file: File, path: string, importId: string, onPr
   if (!Number.isSafeInteger(offset) || offset < 0 || offset > file.size)
     throw new Error("Posição de retomada do envio inválida.");
   while (offset < file.size) {
-    const chunk = file.slice(offset, Math.min(offset + CHUNK_SIZE, file.size));
     let response: Response | undefined;
     for (let attempt = 0; attempt < 4; attempt++) {
       try {
+        const chunk = file.slice(offset, Math.min(offset + CHUNK_SIZE, file.size));
         response = await checked(await fetch(url, {
           method: "PATCH",
           headers: { ...headers, "Content-Type": "application/offset+octet-stream",
@@ -78,7 +78,7 @@ export async function uploadIfc(file: File, path: string, importId: string, onPr
         offset = Number(head.headers.get("Upload-Offset") || offset);
       }
     }
-    offset = Number(response?.headers.get("Upload-Offset") || offset + chunk.size);
+    offset = Number(response?.headers.get("Upload-Offset") || Math.min(offset + CHUNK_SIZE, file.size));
     onProgress(Math.round(offset / file.size * 100));
   }
   localStorage.removeItem(key);
