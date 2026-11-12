@@ -29,7 +29,7 @@ begin
     if jsonb_typeof(v_item) is distinct from 'object' then
       raise exception 'Cada linha deve conter colunas identificadas'; end if;
     v_nome := trim(coalesce(v_item->>'nome',''));
-    if length(v_nome) < 2 or length(v_nome) > case p_tipo when 'materiais' then 120 else 160 end then
+    if length(v_nome) < 2 or length(v_nome) > (case when p_tipo = 'materiais' then 120 else 160 end) then
       raise exception 'Nome inválido em uma das linhas'; end if;
     if p_tipo = 'materiais' then
       v_unidade := trim(coalesce(v_item->>'unidade_estoque',''));
