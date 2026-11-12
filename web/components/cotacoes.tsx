@@ -11,8 +11,8 @@ type Offer = { id: number; cotacao_id: number; fornecedor_id: number; quantidade
 const dinheiro = (value: number) => Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const dataBR = (value: string) => new Date(value + "T12:00:00").toLocaleDateString("pt-BR");
 
-export default function Cotacoes({ obraId, accessRole, ativo, materiais, solicitacoes }: {
-  obraId: number; accessRole: string; ativo: boolean; materiais: Material[]; solicitacoes: Solicitacao[];
+export default function Cotacoes({ obraId, accessRole, ativo, materiais, solicitacoes, onChanged }: {
+  obraId: number; accessRole: string; ativo: boolean; materiais: Material[]; solicitacoes: Solicitacao[]; onChanged: () => void;
 }) {
   const podeVer = ["administrador", "engenheiro", "supervisor", "estagiario", "encarregado"].includes(accessRole);
   const podeRegistrar = ativo && ["administrador", "engenheiro", "supervisor", "estagiario"].includes(accessRole);
@@ -59,7 +59,7 @@ export default function Cotacoes({ obraId, accessRole, ativo, materiais, solicit
 
   async function run(action: () => Promise<void>, success: string) {
     setBusy(true); setError(""); setNotice("");
-    try { await action(); await refresh(); setNotice(success); }
+    try { await action(); await refresh(); onChanged(); setNotice(success); }
     catch (e) { setError(mensagemErro(e)); }
     finally { setBusy(false); }
   }
