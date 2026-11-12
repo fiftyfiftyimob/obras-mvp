@@ -167,6 +167,7 @@ export function WorkManagement({ id, accessRole = "administrador" }: { id: numbe
   const [editor, setEditor] = useState<{ table: string; row: Row } | null>(
     null,
   );
+  const [bimQuantities, setBimQuantities] = useState<Record<number, number>>({});
   const [event, setEvent] = useState<{ task: Row; tipo: string } | null>(null);
   const [history, setHistory] = useState<number | null>(null);
   const [dispatch, setDispatch] = useState<Row | null>(null);
@@ -687,6 +688,34 @@ export function WorkManagement({ id, accessRole = "administrador" }: { id: numbe
       setBusy(false);
     }
   }
+  useEffect(() => {
+    if (tab !== "compromissos_semanais" || !id) return;
+    let cancelled = false;
+    async function loadBimTotals() {
+      const revision = await supabase.from("bim_importacoes").select("id")
+        .eq("obra_id", id).eq("estado", "concluida")
+        .order("concluido_em", { ascending: false }).limit(1).maybeSingle();
+      if (revision.error) throw revision.error;
+      if (!revision.data) { if (!cancelled) setBimQuantities({}); return; }
+      const links = await supabase.from("bim_vinculos_servico")
+        .select("servico_id,quantidade_id").eq("importacao_id", revision.data.id);
+      if (links.error) throw links.error;
+      const ids = (links.data || []).map((link) => link.quantidade_id);
+      if (!ids.length) { if (!cancelled) setBimQuantities({}); return; }
+      const quantities = await supabase.from("bim_quantidades")
+        .select("id,valor").in("id", ids);
+      if (quantities.error) throw quantities.error;
+      const amounts = new Map((quantities.data || []).map((item) => [item.id, Number(item.valor)]));
+      const totals: Record<number, number> = {};
+      for (const link of links.data || []) {
+        totals[link.servico_id] = (totals[link.servico_id] || 0) + (amounts.get(link.quantidade_id) || 0);
+      }
+      if (!cancelled) setBimQuantities(totals);
+    }
+    void loadBimTotals().catch((cause) => { if (!cancelled) setError(mensagemErro(cause)); });
+    return () => { cancelled = true; };
+  }, [id, tab]);
+
   function open(table: string, row: Row = {}) {
     if (!discardForm()) return;
     setEditor({
@@ -1135,6 +1164,7 @@ export function WorkManagement({ id, accessRole = "administrador" }: { id: numbe
           onSave={save}
           onCreateOption={createOption}
           onDirtyChange={setFormDirty}
+          bimQuantities={editor.table === "compromissos_semanais" ? bimQuantities : undefined}
           onCancel={() => setEditor(null)}
           onFieldChange={
             editor.table === "tarefas"
