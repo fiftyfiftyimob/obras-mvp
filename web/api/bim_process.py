@@ -116,7 +116,7 @@ class handler(BaseHTTPRequestHandler):
             self.respond(400, {"ok": False, "error": "JSON inválido"})
             return
         requested_id = body.get("import_id")
-        if not is_secret and not user_job(supplied, requested_id):
+        if not is_secret and not requested_id:
             self.respond(401, {"ok": False, "error": "unauthorized"})
             return
         job = None
