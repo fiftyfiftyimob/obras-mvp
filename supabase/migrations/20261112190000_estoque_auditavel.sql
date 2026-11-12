@@ -96,7 +96,7 @@ begin
   if p_tipo <> 'contagem' and p_tipo <> 'estorno' and p_quantidade <= 0 then
     raise exception 'Informe uma quantidade maior que zero'; end if;
   v_papel := private.papel_obra(p_obra_id);
-  if v_papel not in ('administrador','engenheiro','supervisor','encarregado')
+  if v_papel is null or v_papel not in ('administrador','engenheiro','supervisor','encarregado')
      or not exists (select 1 from public.obras where id = p_obra_id and ativo) then
     raise exception 'Acesso negado à operação de estoque';
   end if;
