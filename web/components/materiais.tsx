@@ -2,6 +2,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { supabase, mensagemErro, hoje } from "../lib/supabase";
 import Estoque from "./estoque";
+import Composicoes from "./composicoes";
 import Cotacoes from "./cotacoes";
 import PedidosCompra from "./pedidos-compra";
 
@@ -162,6 +163,7 @@ export default function Materiais({ obraId, accessRole, ativo }: { obraId: numbe
       </form>
       <p className="muted">{materiais.length} materiais · {almoxarifados.length} almoxarifados cadastrados nesta obra.</p>
     </div>}
+    <Composicoes obraId={obraId} accessRole={accessRole} ativo={ativo} materiais={materiais} />
     {podeSolicitar && <div className="panel editor">
       <h3>Nova solicitação</h3>
       {(!materiais.length || !almoxarifados.length || !frentes.length) && <p className="notice">Cadastre ao menos um material, um almoxarifado e uma frente ativa antes de solicitar.</p>}
