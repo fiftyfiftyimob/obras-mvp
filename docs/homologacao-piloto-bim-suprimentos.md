@@ -24,10 +24,21 @@ Data: 2026-11-12. Obra de teste: Residencial Horizonte — Teste Operacional (ID
 | Projeção de falta | Cenários testados com demanda antes da entrega, pedido atrasado e entrega no mesmo dia |
 | Auditoria de execução anônima das 15 rotinas elevadas BIM/compras | 0 executáveis após migração de segurança; 15 disponíveis a autenticados |
 
+## Piloto visual autenticado
+
+- Sessão já autenticada de Leandro na obra 19; nenhuma senha ou código foi transmitido no chat.
+- Projeto BIM mostrou revisão IFC4 concluída, quatro elementos e zero pendências, além dos formulários de pacote EAP.
+- Na aba Materiais, foram cadastrados `Bloco cerâmico PILOTO`, `Almoxarifado PILOTO` e `Fornecedor Fictício PILOTO`.
+- Cotação #12: 150 unidades, dois paletes de compra, proposta de R$ 1.050,00, escolhida no aplicativo.
+- Pedido #6: 150 unidades; recebimento parcial de 80 unidades com documento `TESTE-PILOTO-SEM-NF`. O extrato confirmou entrada física de 80 unidades.
+- Solicitação #4: 180 unidades aprovadas para 17/11/2026. O Dashboard apontou falta de 100 unidades nessa data, pois as 70 unidades restantes do pedido têm entrega prevista para 18/11/2026. Indicou R$ 1.050,00 contratados e R$ 560,00 recebidos estimados.
+- A exportação de suprimentos para Power BI produziu `obras-suprimentos-19-2026-11-12.xlsx`.
+- O teste encontrou estados desatualizados entre cotação/pedido e recebimento/estoque, além de botão de estorno no lugar errado. Corrigidos no PR #58.
+
 ## Limites da homologação atual
 
-- Não havia sessão autenticada aberta no navegador para percorrer visualmente os formulários e a exportação. A validação visual deve ser feita pelo titular entrando no aplicativo diretamente; nunca transmitir senha no chat.
-- A obra 19 possui IFC de teste com quatro elementos, mas não há registros permanentes de material, cotação ou pedido. Os testes de banco foram revertidos para não misturar dados artificiais aos dados da obra.
+- A obra 19 possui IFC de teste com quatro elementos. O vínculo IFC → pacote EAP foi validado em transação revertida, mas ainda não há um pacote BIM permanente aprovado nesta obra.
+- O piloto visual criou registros identificados como fictícios na obra de teste para demonstrar a cadeia de compras. Eles permanecem visíveis para conferência e não representam encomenda a fornecedor real.
 - O custo recebido no Dashboard é estimado pela fração física do pedido; não é reconciliação com notas fiscais.
 - A projeção usa solicitações aprovadas e pedidos com data futura. Não transforma automaticamente quantitativos IFC em lista de materiais; para isso é necessário definir composições de consumo por serviço e validar com o engenheiro.
 - A auditoria Supabase ainda aponta funções SECURITY DEFINER acessíveis a usuários autenticados, que são necessárias para os fluxos RPC; elas validam papel da obra. Aponta também proteção contra senhas vazadas não habilitada no Auth e índices de desempenho potenciais. Esses pontos devem ser avaliados antes de uso com dados reais em escala.
@@ -41,6 +52,5 @@ Data: 2026-11-12. Obra de teste: Residencial Horizonte — Teste Operacional (ID
 
 ## Próximas ações para encerrar a etapa 10
 
-- Percorrer com sessão autenticada os fluxos BIM, Materiais e Dashboard na obra 19, inclusive download da planilha.
 - Confirmar software BIM e ERP/compras usados na operação e priorizar um conector concreto com credenciais próprias e escopo mínimo.
 - Validar com o engenheiro uma composição de materiais por serviço antes de usar quantitativos IFC para compra automática.
