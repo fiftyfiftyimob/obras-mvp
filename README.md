@@ -16,6 +16,10 @@ Produção: https://web-indol-rho-95.vercel.app
 - RDO com clima, observação geral, itens executados e impressão.
 - Canal do operário por WhatsApp: ativação por código, tarefas individuais, apontamentos, impedimentos, solicitação de conclusão e fotos privadas.
 
+## Projeto BIM
+
+A aba Projeto BIM envia arquivos IFC diretamente ao Storage privado do Supabase. A extração roda em uma função Python da Vercel depois do envio; arquivos grandes usam upload resumível. O cron diário da Vercel serve apenas para retentativas no plano Hobby. Para habilitar as retentativas automáticas, configure `CRON_SECRET` no painel da Vercel sem colocar o valor no código. O processamento iniciado pela tela usa a sessão do usuário e não expõe a chave de serviço.
+
 ## Desenvolvimento
 
 Requer Node.js 22 ou superior.
