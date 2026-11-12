@@ -1,4 +1,5 @@
 """Extract the IFC quantities required by the BIM review screen."""
+import math
 import ifcopenshell
 import ifcopenshell.util.element
 import ifcopenshell.util.unit
@@ -33,11 +34,17 @@ def quantity_rows(model, element):
                 source_unit = ifcopenshell.util.unit.get_project_unit(model, project_unit_type)
             symbol = ifcopenshell.util.unit.get_unit_symbol(source_unit) if source_unit else None
             value = getattr(quantity, field, None)
+            numeric = float(value) if value is not None else None
+            if numeric is not None and not math.isfinite(numeric):
+                numeric = None
+            issue = ("Valor ausente ou inválido." if numeric is None else
+                     "Valor deve ser positivo." if numeric <= 0 else
+                     "Unidade não informada." if project_unit_type and not symbol else None)
             rows.append({
                 "conjunto": group.Name, "nome": quantity.Name, "tipo": kind,
-                "valor": float(value) if value is not None else None,
+                "valor": numeric,
                 "unidade": symbol if symbol else ("un" if kind == "IfcQuantityCount" else None),
-                "pendencia": "Unidade não informada." if project_unit_type and not symbol else None,
+                "pendencia": issue,
             })
     return rows
 
@@ -46,12 +53,17 @@ def extract(path):
     if model.schema not in ("IFC2X3", "IFC4", "IFC4X3"):
         raise ValueError("Versão IFC não suportada: " + str(model.schema))
     elements = []
+    seen_ids = set()
     for element in model.by_type("IfcElement"):
         container = ifcopenshell.util.element.get_container(element)
         quantities = quantity_rows(model, element)
         warnings = []
         if not element.GlobalId:
             warnings.append("Elemento sem GlobalId.")
+        elif element.GlobalId in seen_ids:
+            warnings.append("GlobalId repetido nesta revisão.")
+        else:
+            seen_ids.add(element.GlobalId)
         if not quantities:
             warnings.append("Sem quantitativos declarados.")
         if not container:

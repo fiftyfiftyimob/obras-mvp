@@ -3,7 +3,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { supabase, mensagemErro } from "../lib/supabase";
 import { allRows } from "../lib/operacional";
 
-type Revision = { id: string; revisao: string; estado: string };
+type Revision = { id: string; revisao: string; estado: string; conferida_em: string | null };
 type Service = { id: number; nome: string; unidade: string; ativo: boolean; produtividade_referencia: number | null };
 type Front = { id: number; nome: string };
 type Team = { id: number; nome: string };
@@ -43,7 +43,7 @@ const PAGE = 50;
 export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
   obraId: number; accessRole: string; ativo: boolean; revisoes: Revision[];
 }) {
-  const concluded = revisoes.filter((r) => r.estado === "concluida");
+  const concluded = revisoes.filter((r) => r.estado === "concluida" && r.conferida_em);
   const canPlan = ativo && ["administrador","engenheiro","supervisor"].includes(accessRole);
   const canApprove = ativo && ["administrador","engenheiro"].includes(accessRole);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -302,7 +302,7 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
     </div><button className="secondary" disabled={busy} onClick={() => void refresh().catch((cause) => setError(mensagemErro(cause)))}>Atualizar pacotes</button></div>
     {error && <p className="alert error" role="alert">{error}</p>}
     {notice && <p className="alert success" role="status">{notice}</p>}
-    {!concluded.length && <p className="notice">Conclua a extração de uma revisão IFC antes de montar pacotes.</p>}
+    {!concluded.length && <p className="notice">Conclua e confira uma revisão IFC antes de montar pacotes.</p>}
     {canPlan && concluded.length > 0 && <div className="panel editor">
       <h3>Novo pacote da EAP</h3>
       <form onSubmit={createPackage}>
