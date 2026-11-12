@@ -1,6 +1,7 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { supabase, mensagemErro, hoje } from "../lib/supabase";
+import Estoque from "./estoque";
 
 type Material = { id: number; nome: string; especificacao: string; unidade_estoque: string; unidade_compra: string; quantidade_por_embalagem: number };
 type Almoxarifado = { id: number; nome: string };
@@ -8,7 +9,8 @@ type Frente = { id: number; nome: string };
 type Tarefa = { id: number; frente_id: number; data: string; servico_id: number };
 type Solicitacao = {
   id: number; material_id: number; almoxarifado_id: number; frente_id: number; tarefa_id: number | null;
-  quantidade: number; necessario_em: string; observacao: string | null; estado: string;
+  quantidade: number; quantidade_reservada: number; quantidade_entregue: number;
+  necessario_em: string; observacao: string | null; estado: string;
   solicitado_por: string; solicitado_em: string; justificativa_decisao: string | null;
 };
 const estados: Record<string, string> = { pendente: "Pendente", aprovada: "Aprovada", recusada: "Recusada", cancelada: "Cancelada" };
@@ -50,7 +52,7 @@ export default function Materiais({ obraId, accessRole, ativo }: { obraId: numbe
       supabase.from("almoxarifados").select("id,nome").eq("obra_id", obraId).eq("ativo", true).order("nome"),
       supabase.from("frentes").select("id,nome").eq("obra_id", obraId).eq("ativo", true).order("nome"),
       supabase.from("tarefas").select("id,frente_id,data,servico_id").eq("obra_id", obraId).order("data", { ascending: false }).limit(500),
-      supabase.from("solicitacoes_materiais").select("id,material_id,almoxarifado_id,frente_id,tarefa_id,quantidade,necessario_em,observacao,estado,solicitado_por,solicitado_em,justificativa_decisao").eq("obra_id", obraId).order("solicitado_em", { ascending: false }).limit(500),
+      supabase.from("solicitacoes_materiais").select("id,material_id,almoxarifado_id,frente_id,tarefa_id,quantidade,quantidade_reservada,quantidade_entregue,necessario_em,observacao,estado,solicitado_por,solicitado_em,justificativa_decisao").eq("obra_id", obraId).order("solicitado_em", { ascending: false }).limit(500),
       supabase.auth.getUser(),
     ]);
     for (const result of [m, a, f, t, s, u]) if (result.error) throw result.error;
@@ -134,7 +136,7 @@ export default function Materiais({ obraId, accessRole, ativo }: { obraId: numbe
   if (!podeVer) return <section className="panel"><h2>Materiais</h2><p className="muted">Este perfil não tem acesso ao almoxarifado.</p></section>;
   return <section aria-label="Materiais e almoxarifado">
     <div className="section-heading"><div><h2>Materiais</h2>
-      <p className="muted">Cadastre materiais e solicite o que cada frente precisa. As solicitações aprovadas seguirão para a reserva de estoque.</p>
+      <p className="muted">Cadastre materiais, solicite por frente e acompanhe reservas, entregas e saldos do almoxarifado.</p>
     </div><button className="secondary" disabled={busy} onClick={() => void refresh().catch((cause) => setError(mensagemErro(cause)))}>Atualizar</button></div>
     {error && <p className="alert error" role="alert">{error}</p>}
     {notice && <p className="alert success" role="status">{notice}</p>}
@@ -197,5 +199,6 @@ export default function Materiais({ obraId, accessRole, ativo }: { obraId: numbe
           })}</tbody></table></div>}
       {solicitacoes.length >= 500 && <p className="muted">Exibindo as 500 solicitações mais recentes.</p>}
     </div>
+    <Estoque obraId={obraId} accessRole={accessRole} ativo={ativo} materiais={materiais} almoxarifados={almoxarifados} onChanged={refresh} />
   </section>;
 }
