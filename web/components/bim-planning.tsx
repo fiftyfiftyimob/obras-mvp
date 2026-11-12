@@ -250,11 +250,10 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
   function compare() {
     if (!baseId || !newId || baseId === newId) { setError("Escolha duas revisões concluídas diferentes."); return; }
     void run(async () => {
-      const { data, error: rpcError } = await supabase.rpc("comparar_revisoes_bim", {
+      const data = await allRows(() => supabase.rpc("comparar_revisoes_bim", {
         p_base: baseId, p_nova: newId,
-      });
-      if (rpcError) throw rpcError;
-      setDifferences((data || []) as Difference[]);
+      }).order("global_id").order("medida").order("situacao"));
+      setDifferences(data as Difference[]);
       setReplanRevisionId(newId);
     }, "Comparação concluída. Confira os itens alterados e os identificadores incertos.");
   }
