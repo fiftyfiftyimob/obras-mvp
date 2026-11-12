@@ -73,14 +73,30 @@ def process(job):
         "concluido_em": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     })
 
-def claim():
-    rows = api("POST", "/rest/v1/rpc/bim_reivindicar_importacao", {})
+def claim(job_id=None):
+    payload = {"p_id": job_id} if job_id else {}
+    rows = api("POST", "/rest/v1/rpc/bim_reivindicar_importacao", payload)
     return rows[0] if rows else None
+
+def user_job(user_token, job_id):
+    if not job_id:
+        return None
+    request = urllib.request.Request(
+        SUPABASE_URL + "/rest/v1/bim_importacoes?id=eq." + urllib.parse.quote(job_id, safe="") +
+        "&select=id,obra_id,caminho_arquivo,tamanho_bytes,tentativas,estado",
+        headers={"apikey": SERVICE_KEY, "Authorization": "Bearer " + user_token},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            rows = json.loads(response.read())
+            return rows[0] if rows else None
+    except urllib.error.HTTPError:
+        return None
 
 def authorized(request):
     expected = os.environ.get("BIM_WORKER_SECRET") or os.environ.get("CRON_SECRET")
     supplied = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
-    return bool(expected and supplied and supplied == expected)
+    return bool(expected and supplied and supplied == expected), supplied
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -88,14 +104,22 @@ class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         self.run()
     def run(self):
-        if not authorized(self):
-            self.send_response(401)
-            self.end_headers()
-            self.wfile.write(b'{"error":"unauthorized"}')
+        is_secret, supplied = authorized(self)
+        body = {}
+        try:
+            length = int(self.headers.get("content-length", "0"))
+            if length:
+                body = json.loads(self.rfile.read(length))
+        except (ValueError, json.JSONDecodeError):
+            self.respond(400, {"ok": False, "error": "JSON inválido"})
+            return
+        requested_id = body.get("import_id")
+        if not is_secret and not user_job(supplied, requested_id):
+            self.respond(401, {"ok": False, "error": "unauthorized"})
             return
         job = None
         try:
-            job = claim()
+            job = claim(requested_id)
             if not job:
                 self.respond(200, {"ok": True, "status": "empty"})
                 return
