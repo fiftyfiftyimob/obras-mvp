@@ -1,0 +1,11 @@
+services:
+  - type: worker
+    name: obras-bim-worker
+    runtime: docker
+    dockerfilePath: ./bim-worker/Dockerfile
+    dockerContext: ./bim-worker
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
