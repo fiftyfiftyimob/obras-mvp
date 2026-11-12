@@ -19,7 +19,7 @@ export type SupplyModel = {
   indicadores: {
     contratados: number; recebido_estimado: number; a_receber_estimado: number;
     pedidos_atrasados: number; solicitacoes_aprovadas_abertas: number; solicitacoes_pendentes: number;
-    cotacoes_abertas: number; frentes_com_risco: number; falta_total: number;
+    cotacoes_abertas: number; combinacoes_em_risco: number;
   };
   fornecedores: { fornecedor_id: number; nome: string; contratado: number; pedidos: number }[];
   diferenca_cotacoes: number;
@@ -108,7 +108,7 @@ export function makeSupplyDashboard(data: SupplyData, today: string): SupplyMode
       solicitacoes_aprovadas_abertas: data.solicitacoes_materiais.filter((s) => s.estado === "aprovada" && value(s.quantidade) > value(s.quantidade_entregue)).length,
       solicitacoes_pendentes: data.solicitacoes_materiais.filter((s) => s.estado === "pendente").length,
       cotacoes_abertas: data.cotacoes_materiais.filter((c) => c.estado === "aberta").length,
-      frentes_com_risco: riscos.length, falta_total: riscos.reduce((n, r) => n + r.falta_maxima, 0),
+      combinacoes_em_risco: riscos.length,
     },
     fornecedores: [...supplierTotals.values()].sort((a, b) => b.contratado-a.contratado),
     diferenca_cotacoes,
