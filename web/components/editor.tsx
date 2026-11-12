@@ -28,6 +28,7 @@ export default function Editor({
   onFieldChange,
   onCancel,
   onDirtyChange,
+  bimQuantities,
 }: {
   title: string;
   fields: Field[];
@@ -40,6 +41,7 @@ export default function Editor({
   onCancel: () => void;
   onFieldChange?: (name: string, value: string) => Partial<Row> | void;
   onDirtyChange?: (dirty: boolean) => void;
+  bimQuantities?: Record<number, number>;
 }) {
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -231,11 +233,22 @@ export default function Editor({
                   name={f.name}
                   type={f.type || "text"}
                   required={f.required}
-                  defaultValue={initial[f.name] ?? ""}
+                  {...(f.name === "quantidade_meta" && bimQuantities
+                    ? { value: values[f.name] ?? "", onChange: (event: React.ChangeEvent<HTMLInputElement>) => updateValue(f.name, event.target.value) }
+                    : { defaultValue: initial[f.name] ?? "" })}
                   min={f.min}
                   step={f.step}
                   maxLength={f.maxLength ?? 200}
                 />
+              )}
+              {f.name === "quantidade_meta" && bimQuantities?.[Number(values.servico_id)] != null && (
+                <button type="button" className="secondary" onClick={() => {
+                  updateValue("quantidade_meta", String(bimQuantities[Number(values.servico_id)]));
+                  setDirty(true);
+                  onDirtyChange?.(true);
+                }}>
+                  Usar total BIM ({bimQuantities[Number(values.servico_id)]})
+                </button>
               )}
               {custom && (
                 <button
