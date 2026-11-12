@@ -20,6 +20,10 @@ Produção: https://web-indol-rho-95.vercel.app
 
 A aba Projeto BIM envia arquivos IFC diretamente ao Storage privado do Supabase. A extração roda em uma função Python da Vercel depois do envio; arquivos grandes usam upload resumível. O cron diário da Vercel serve apenas para retentativas no plano Hobby. Para habilitar as retentativas automáticas, configure `CRON_SECRET` no painel da Vercel sem colocar o valor no código. O processamento iniciado pela tela usa a sessão do usuário e não expõe a chave de serviço.
 
+## Integrações por cliente
+
+A versão atual funciona com IFC e CSV sem exigir um software BIM ou ERP específico. A conferência da revisão IFC precede o planejamento; composições de materiais por serviço são aprovadas pelo engenheiro. Consulte [o contrato de conectores](docs/conectores-por-cliente.md) e [o formato CSV de compras](docs/troca-dados-compras-csv.md) antes de prometer integração automática com uma ferramenta de terceiros.
+
 ## Desenvolvimento
 
 Requer Node.js 22 ou superior.
