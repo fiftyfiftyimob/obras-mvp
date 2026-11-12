@@ -89,6 +89,21 @@ export default function BimProject({ obraId, accessRole, ativo }: {
   }, [elementId]);
   const current = imports.find((row) => row.id === selectedId);
 
+  async function removeCurrent() {
+    if (!current || !confirm("Excluir esta revisão IFC e seus dados?")) return;
+    setError(""); setNotice(""); setBusy(true);
+    try {
+      const storage = await supabase.storage.from("modelos-bim").remove([current.caminho_arquivo]);
+      if (storage.error && !storage.error.message.includes("not found")) throw storage.error;
+      const result = await supabase.from("bim_importacoes").delete().eq("id", current.id);
+      if (result.error) throw result.error;
+      setNotice("Revisão IFC excluída.");
+      await refresh();
+    } catch (cause) {
+      setError(mensagemErro(cause));
+    } finally { setBusy(false); }
+  }
+
   async function send() {
     if (!canUpload || !file) return;
     setError(""); setNotice("");
@@ -188,7 +203,7 @@ export default function BimProject({ obraId, accessRole, ativo }: {
         </select></label>
         {current && <div>
           <p><strong>Arquivo:</strong> {current.nome_arquivo} · <strong>Formato:</strong> {current.schema_ifc || "Aguardando extração"}</p>
-          <p><strong>Estado:</strong> {status[current.estado] || current.estado} · <strong>Elementos:</strong> {current.total_elementos} · <strong>Pendências:</strong> {current.total_pendencias}</p>
+          <p><strong>Estado:</strong> {status[current.estado] || current.estado} · <strong>Elementos:</strong> {current.total_elementos} · <strong>Pendências:</strong> {current.total_pendencias}</p>\n          <button className="secondary" disabled={busy} onClick={() => void removeCurrent()}>Excluir revisão</button>
           {current.erro && <p className="alert error">{current.erro}</p>}
           {current.estado === "aguardando_envio" && <p className="notice">Selecione o mesmo arquivo e revisão acima para retomar o envio.</p>}
         </div>}
