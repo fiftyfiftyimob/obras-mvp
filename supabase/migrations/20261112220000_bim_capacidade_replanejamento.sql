@@ -2,15 +2,8 @@ alter table public.bim_pacotes
   add column horas_equipe_previstas numeric(14,2) check (
     horas_equipe_previstas > 0 and horas_equipe_previstas::text <> 'NaN'
   ),
-  add column produtividade_referencia numeric(14,4);
-alter table public.bim_pacotes drop constraint bim_pacotes_estado_check;
-alter table public.bim_pacotes add constraint bim_pacotes_estado_check
-  check (estado in ('rascunho','aprovado','substituido'));
-alter table public.bim_pacotes drop constraint bim_pacotes_check1;
-alter table public.bim_pacotes add constraint bim_pacotes_aprovacao_coerente
-  check ((estado='rascunho' and aprovado_por is null and aprovado_em is null)
-    or (estado in ('aprovado','substituido') and aprovado_por is not null and aprovado_em is not null));
-
+  add column produtividade_referencia numeric(14,4),
+  add column substituido_por uuid references public.bim_pacotes(id);
 create function private.validar_capacidade_pacote_bim()
 returns trigger language plpgsql set search_path = '' as $$
 declare v_prod numeric;
@@ -81,7 +74,7 @@ begin
      or not coalesce(private.papel_obra(v_anterior.obra_id) in ('administrador','engenheiro'),false)
      or not exists (select 1 from public.obras where id=v_anterior.obra_id and ativo) then
     raise exception 'Acesso negado ao replanejamento BIM'; end if;
-  if v_anterior.estado<>'aprovado' then
+  if v_anterior.estado<>'aprovado' or v_anterior.substituido_por is not null then
     raise exception 'O pacote anterior precisa estar aprovado e vigente'; end if;
   if p_decisao not in ('manter','substituir') or length(trim(coalesce(p_motivo,'')))<5 then
     raise exception 'Informe a decisão e o motivo'; end if;
@@ -104,7 +97,7 @@ begin
   values (v_anterior.obra_id,p_pacote_id,p_nova_importacao_id,p_decisao,p_pacote_novo_id,
     trim(p_motivo),auth.uid()) returning id into v_id;
   if p_decisao='substituir' then
-    update public.bim_pacotes set estado='substituido' where id=p_pacote_id;
+    update public.bim_pacotes set substituido_por=p_pacote_novo_id where id=p_pacote_id;
   end if;
   return v_id;
 end;
@@ -112,40 +105,45 @@ $$;
 revoke all on function public.registrar_replanejamento_bim(uuid,uuid,text,text,uuid) from public;
 grant execute on function public.registrar_replanejamento_bim(uuid,uuid,text,text,uuid) to authenticated;
 
-create function public.excluir_rascunho_pacote_bim(p_id uuid)
-returns uuid language plpgsql security definer set search_path = '' as $$
-declare v public.bim_pacotes;
+
+create function private.bim_guard_semana_substituida()
+returns trigger language plpgsql set search_path = '' as $$
 begin
-  select * into v from public.bim_pacotes where id=p_id for update;
-  if not found or auth.uid() is null
-     or not coalesce(private.papel_obra(v.obra_id) in ('administrador','engenheiro','supervisor'),false)
-     or not exists (select 1 from public.obras where id=v.obra_id and ativo) then
-    raise exception 'Acesso negado ao pacote BIM'; end if;
-  if v.estado<>'rascunho' or exists (select 1 from public.bim_pacote_predecessores where predecessor_id=p_id)
-     or exists (select 1 from public.bim_pacote_semanas where pacote_id=p_id) then
-    raise exception 'Este rascunho já tem dependências ou semanas'; end if;
-  delete from public.bim_pacote_fontes where pacote_id=p_id;
-  delete from public.bim_pacote_predecessores where pacote_id=p_id;
-  delete from public.bim_pacotes where id=p_id;
-  return p_id;
+  if exists (select 1 from public.bim_pacotes
+    where id=new.pacote_id and substituido_por is not null) then
+    raise exception 'Este pacote foi substituído por outra revisão'; end if;
+  return new;
 end;
 $$;
-revoke all on function public.excluir_rascunho_pacote_bim(uuid) from public;
-grant execute on function public.excluir_rascunho_pacote_bim(uuid) to authenticated;
-
-create function public.excluir_proposta_bim(p_id uuid)
-returns uuid language plpgsql security definer set search_path = '' as $$
-declare v public.bim_pacote_semanas;
+create trigger bim_guard_semana_substituida before insert on public.bim_pacote_semanas
+  for each row execute function private.bim_guard_semana_substituida();
+create or replace function public.publicar_proposta_bim(p_id uuid)
+returns integer language plpgsql security definer set search_path = '' as $$
+declare v public.bim_pacote_semanas; p public.bim_pacotes; c integer;
 begin
   select * into v from public.bim_pacote_semanas where id=p_id for update;
-  if not found or auth.uid() is null
-     or not coalesce(private.papel_obra(v.obra_id) in ('administrador','engenheiro','supervisor'),false)
+  if not found then raise exception 'Proposta semanal não encontrada'; end if;
+  if auth.uid() is null or not coalesce(private.papel_obra(v.obra_id) in ('administrador','engenheiro'),false)
      or not exists (select 1 from public.obras where id=v.obra_id and ativo) then
-    raise exception 'Acesso negado à proposta BIM'; end if;
-  if v.compromisso_id is not null then raise exception 'Compromisso publicado não pode ser excluído aqui'; end if;
-  delete from public.bim_pacote_semanas where id=p_id;
-  return p_id;
+    raise exception 'Acesso negado à publicação BIM'; end if;
+  if v.compromisso_id is not null then return v.compromisso_id; end if;
+  select * into p from public.bim_pacotes where id=v.pacote_id;
+  if p.estado<>'aprovado' or p.substituido_por is not null then
+    raise exception 'O pacote BIM precisa estar aprovado e vigente'; end if;
+  if not exists (select 1 from public.frentes where id=p.frente_id and obra_id=p.obra_id and ativo)
+     or not exists (select 1 from public.equipes where id=p.equipe_id and obra_id=p.obra_id and ativo)
+     or not exists (select 1 from public.servicos where id=p.servico_id and ativo and unidade=p.unidade
+       and (dono_id is null or dono_id=auth.uid())) then
+    raise exception 'Frente, equipe ou serviço do pacote não está mais disponível'; end if;
+  insert into public.compromissos_semanais
+    (obra_id,semana_inicio,semana_fim,servico_id,frente_id,equipe_id,quantidade_meta,unidade,observacao,autor_id)
+  values (v.obra_id,v.semana_inicio,v.semana_fim,p.servico_id,p.frente_id,p.equipe_id,
+    v.quantidade_meta,p.unidade,'Origem BIM · pacote '||p.codigo||' · revisão '||p.importacao_id::text,auth.uid())
+  returning id into c;
+  update public.bim_pacote_semanas set compromisso_id=c,publicado_por=auth.uid(),publicado_em=now()
+    where id=p_id;
+  return c;
 end;
 $$;
-revoke all on function public.excluir_proposta_bim(uuid) from public;
-grant execute on function public.excluir_proposta_bim(uuid) to authenticated;
+revoke all on function public.publicar_proposta_bim(uuid) from public;
+grant execute on function public.publicar_proposta_bim(uuid) to authenticated;
