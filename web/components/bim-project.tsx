@@ -129,8 +129,13 @@ export default function BimProject({ obraId, accessRole, ativo }: {
           body: JSON.stringify({ import_id: existing.id }),
         });
         if (!processResponse.ok) {
-          const detail = await processResponse.text();
-          throw new Error("A extração ficou na fila para uma nova tentativa. " + detail.slice(0, 160));
+          let detail = "o processamento encontrou um erro temporário";
+          const responseType = processResponse.headers.get("content-type") || "";
+          if (responseType.includes("application/json")) {
+            const payload = await processResponse.json() as { error?: string };
+            if (payload.error) detail = payload.error;
+          }
+          throw new Error("A extração ficou na fila para uma nova tentativa: " + detail + ".");
         }
       }
       setNotice("Arquivo enviado e extração concluída. Atualizando a conferência.");
