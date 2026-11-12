@@ -29,4 +29,6 @@ Este arquivo registra a sequência de 10 entregas do Obras MVP para permitir ret
 
 - A etapa 9 está no PR #56: projeção de faltas por material/almoxarifado e data, indicadores de custo e abastecimento, exportação Excel para Power BI. Validar cálculo e build antes do merge.
 
-- O PR #56 integrou a etapa 9; build e deploy de produção READY. A etapa 10 está no PR #57 com teste integrado revertido, auditoria de segurança e relatório em `docs/homologacao-piloto-bim-suprimentos.md`. Faltam validação visual autenticada e nomes das ferramentas BIM/ERP para priorizar conector específico. Não marcar 10/10 antes desses itens.
+- O PR #56 integrou a etapa 9; build e deploy de produção READY. A etapa 10 está no PR #57 com teste integrado revertido, auditoria de segurança e relatório em `docs/homologacao-piloto-bim-suprimentos.md`. A validação visual autenticada concluiu o piloto de cotações, pedido, recebimento, estoque, previsão de falta e exportação; problemas de atualização foram corrigidos no PR #58. Faltam os nomes das ferramentas BIM/ERP para priorizar conector específico. Não marcar 10/10 antes dessa decisão.
+
+- O piloto visual deixou material, fornecedor, almoxarifado, cotação #12, pedido #6, recebimento de 80 unidades e solicitação #4 identificados como fictícios na obra 19. A previsão apresentou falta de 100 unidades em 17/11/2026; ver `docs/homologacao-piloto-bim-suprimentos.md`.
