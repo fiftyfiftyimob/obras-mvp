@@ -27,7 +27,9 @@ export default function DashboardSuprimentos({ obraId, obraNome, accessRole }: {
     setBusy(true); setError("");
     try {
       const pairs = await Promise.all(keys.map(async (key) => {
-        const rows = await allRows(() => supabase.from(key).select("*").eq("obra_id", obraId).order("id"));
+        const rows = await allRows(() => key === "estoque_saldos"
+          ? supabase.from(key).select("*").eq("obra_id", obraId).order("material_id").order("almoxarifado_id")
+          : supabase.from(key).select("*").eq("obra_id", obraId).order("id"));
         return [key, rows] as const;
       }));
       setData(Object.fromEntries(pairs) as SupplyData);
