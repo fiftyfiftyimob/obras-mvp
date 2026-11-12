@@ -29,9 +29,9 @@ const nomes: Record<string, string> = {
 };
 const numero = (value: number) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 4 });
 
-export default function Estoque({ obraId, accessRole, ativo, materiais, almoxarifados, onChanged }: {
+export default function Estoque({ obraId, accessRole, ativo, materiais, almoxarifados, onChanged, revision }: {
   obraId: number; accessRole: string; ativo: boolean; materiais: Material[]; almoxarifados: Almoxarifado[];
-  onChanged: () => Promise<void>;
+  onChanged: () => Promise<void>; revision: number;
 }) {
   const podeVer = ["administrador","engenheiro","supervisor","estagiario","encarregado"].includes(accessRole);
   const podeOperar = ativo && ["administrador","engenheiro","supervisor","encarregado"].includes(accessRole);
@@ -39,6 +39,7 @@ export default function Estoque({ obraId, accessRole, ativo, materiais, almoxari
   const [saldos, setSaldos] = useState<Saldo[]>([]);
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
   const [operacoes, setOperacoes] = useState<Operacao[]>([]);
+  const [operacoesDePedido, setOperacoesDePedido] = useState<Set<string>>(new Set());
   const [movimentos, setMovimentos] = useState<Movimento[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -61,12 +62,18 @@ export default function Estoque({ obraId, accessRole, ativo, materiais, almoxari
       supabase.from("estoque_movimentos").select("id,operacao_id,almoxarifado_id,material_id,delta_fisico,delta_reservado,criado_em").eq("obra_id", obraId).order("id", { ascending: false }).limit(100),
     ]);
     for (const result of [s,r,o,m]) if (result.error) throw result.error;
+    const ids = (o.data || []).map((row) => row.id);
+    const recibos = ids.length
+      ? await supabase.from("recebimentos_compra").select("operacao_id").eq("obra_id", obraId).in("operacao_id", ids)
+      : { data: [], error: null };
+    if (recibos.error) throw recibos.error;
+    setOperacoesDePedido(new Set((recibos.data || []).map((row) => row.operacao_id)));
     setSaldos((s.data || []) as Saldo[]);
     setSolicitacoes((r.data || []) as Solicitacao[]);
     setOperacoes((o.data || []) as Operacao[]);
     setMovimentos((m.data || []) as Movimento[]);
   }, [obraId,podeVer]);
-  useEffect(() => { void refresh().catch((cause) => setError(mensagemErro(cause))); }, [refresh]);
+  useEffect(() => { void refresh().catch((cause) => setError(mensagemErro(cause))); }, [refresh, revision]);
 
   async function registrar(input: Omit<OperacaoInput,"p_id">, success: string) {
     const signature = JSON.stringify(input);
@@ -202,7 +209,9 @@ export default function Estoque({ obraId, accessRole, ativo, materiais, almoxari
               <td>{numero(m.delta_fisico)} {unidade(m.material_id)}</td>
               <td>{numero(m.delta_reservado)} {unidade(m.material_id)}</td>
               <td>{podeGerir && op && op.tipo !== "estorno" && !estornadas.has(op.id) &&
-                <button className="secondary" disabled={busy} onClick={() => void estornar(op)}>Estornar</button>}</td>
+                (operacoesDePedido.has(op.id)
+                  ? <span className="muted">Estorne pelo pedido</span>
+                  : <button className="secondary" disabled={busy} onClick={() => void estornar(op)}>Estornar</button>)}</td>
             </tr>;
           })}</tbody></table></div>}
       {movimentos.length >= 100 && <p className="muted">Exibindo os 100 movimentos mais recentes.</p>}

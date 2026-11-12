@@ -33,6 +33,8 @@ export default function Materiais({ obraId, accessRole, ativo }: { obraId: numbe
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [cotacoesRevision, setCotacoesRevision] = useState(0);
+  const [estoqueRevision, setEstoqueRevision] = useState(0);
   const [nomeMaterial, setNomeMaterial] = useState("");
   const [especificacao, setEspecificacao] = useState("");
   const [unidade, setUnidade] = useState("un");
@@ -201,8 +203,8 @@ export default function Materiais({ obraId, accessRole, ativo }: { obraId: numbe
           })}</tbody></table></div>}
       {solicitacoes.length >= 500 && <p className="muted">Exibindo as 500 solicitações mais recentes.</p>}
     </div>
-    <Estoque obraId={obraId} accessRole={accessRole} ativo={ativo} materiais={materiais} almoxarifados={almoxarifados} onChanged={refresh} />
-    <Cotacoes obraId={obraId} accessRole={accessRole} ativo={ativo} materiais={materiais} solicitacoes={solicitacoes} />
-    <PedidosCompra obraId={obraId} accessRole={accessRole} ativo={ativo} materiais={materiais} almoxarifados={almoxarifados} onChanged={refresh} />
+    <Estoque obraId={obraId} accessRole={accessRole} ativo={ativo} materiais={materiais} almoxarifados={almoxarifados} onChanged={refresh} revision={estoqueRevision} />
+    <Cotacoes obraId={obraId} accessRole={accessRole} ativo={ativo} materiais={materiais} solicitacoes={solicitacoes} onChanged={() => setCotacoesRevision((v) => v + 1)} />
+    <PedidosCompra obraId={obraId} accessRole={accessRole} ativo={ativo} materiais={materiais} almoxarifados={almoxarifados} onChanged={async () => { await refresh(); setEstoqueRevision((v) => v + 1); }} cotacoesRevision={cotacoesRevision} />
   </section>;
 }

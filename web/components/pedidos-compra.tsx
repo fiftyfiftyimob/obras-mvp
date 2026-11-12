@@ -13,8 +13,8 @@ type Receipt = { id: string; pedido_id: number; quantidade: number; documento: s
 const money = (n: number) => Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const date = (s: string) => new Date(s.slice(0, 10) + "T12:00:00").toLocaleDateString("pt-BR");
 
-export default function PedidosCompra({ obraId, accessRole, ativo, materiais, almoxarifados, onChanged }: {
-  obraId: number; accessRole: string; ativo: boolean; materiais: Material[]; almoxarifados: Warehouse[]; onChanged: () => Promise<void>;
+export default function PedidosCompra({ obraId, accessRole, ativo, materiais, almoxarifados, onChanged, cotacoesRevision }: {
+  obraId: number; accessRole: string; ativo: boolean; materiais: Material[]; almoxarifados: Warehouse[]; onChanged: () => Promise<void>; cotacoesRevision: number;
 }) {
   const canView = ["administrador", "engenheiro", "supervisor", "estagiario", "encarregado"].includes(accessRole);
   const canOrder = ativo && ["administrador", "engenheiro"].includes(accessRole);
@@ -47,7 +47,7 @@ export default function PedidosCompra({ obraId, accessRole, ativo, materiais, al
     setQuotes(q as Quote[]); setOffers(o as Offer[]); setSuppliers(f as Supplier[]);
     setOrders(p as Order[]); setReceipts(r as Receipt[]);
   }, [obraId]);
-  useEffect(() => { if (canView) void refresh().catch((e) => setError(mensagemErro(e))); }, [canView, refresh]);
+  useEffect(() => { if (canView) void refresh().catch((e) => setError(mensagemErro(e))); }, [canView, refresh, cotacoesRevision]);
   async function run(action: () => Promise<void>, success: string) {
     setBusy(true); setError(""); setNotice("");
     try { await action(); await refresh(); setNotice(success); }
