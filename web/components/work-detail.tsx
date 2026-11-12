@@ -11,6 +11,7 @@ import {
   ChartNoAxesCombined,
   RefreshCw,
   Printer,
+  Package,
 } from "lucide-react";
 import Shell from "./shell";
 import Editor, { Row, Field } from "./editor";
@@ -18,6 +19,7 @@ import RecoveryTracking from "./recovery-tracking";
 import ImpactoImpedimentos from "./impacto-impedimentos";
 import WorkDashboard from "./work-dashboard";
 import BimProject from "./bim-project";
+import Materiais from "./materiais";
 
 import WhatsAppDispatch from "./whatsapp-dispatch";
 import { supabase, mensagemErro, hoje } from "../lib/supabase";
@@ -48,6 +50,7 @@ const tabs = [
   ["servicos", "Serviços", ClipboardList],
   ["dashboard", "Dashboard", ChartNoAxesCombined],
   ["bim", "Projeto BIM", Layers3],
+  ["materiais", "Materiais", Package],
 ] as const;
 function parseCollaboratorsCsv(text: string) {
   const lines: string[][] = []; let row: string[] = []; let cell = ""; let quoted = false;
@@ -1079,6 +1082,7 @@ export function WorkManagement({ id, accessRole = "administrador" }: { id: numbe
           </optgroup>
           <option value="dashboard">Dashboard</option>
           <option value="bim">Projeto BIM</option>
+          <option value="materiais">Materiais</option>
         </select>
       </label>
       <div role="tablist" className="tabs" aria-label="Módulos da obra"
@@ -1114,7 +1118,8 @@ export function WorkManagement({ id, accessRole = "administrador" }: { id: numbe
         </p>
       )}
       {tab === "bim" && <BimProject obraId={id} accessRole={accessRole} ativo={Boolean(obra?.ativo)} />}
-      {tab !== "resumo" && tab !== "dashboard" && tab !== "bim" && (
+      {tab === "materiais" && <Materiais obraId={id} accessRole={accessRole} ativo={Boolean(obra?.ativo)} />}
+      {tab !== "resumo" && tab !== "dashboard" && tab !== "bim" && tab !== "materiais" && (
         <div className="section-heading">
           <div>
             <h2>{rdoRow ? `Diário de ${date(rdoRow.data)}` : names[tab]}</h2>
