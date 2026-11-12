@@ -10,8 +10,8 @@ Este arquivo registra a sequência de 10 entregas do Obras MVP para permitir ret
 | 4 | Catálogo, almoxarifados e solicitações de materiais por frente | Integrada | PR #51 |
 | 5 | Estoque: saldo, reserva, entrega, devolução, transferência, contagem e estorno | Integrada | PR #52 |
 | 6 | Cronograma mestre, pacotes da EAP e comparação de revisões BIM | Integrada | PR #53 |
-| 7 | Fornecedores e mapa de cotações com custo entregue e prazo | Em validação | PR #54 |
-| 8 | Pedidos e recebimentos parciais ligados ao estoque | Pendente | — |
+| 7 | Fornecedores e mapa de cotações com custo entregue e prazo | Integrada | PR #54 |
+| 8 | Pedidos e recebimentos parciais ligados ao estoque | Em validação | PR #55 |
 | 9 | Previsão de falta e indicadores de custo e abastecimento no Dashboard, com exportação | Pendente | — |
 | 10 | Homologação do piloto e conectores priorizados conforme as ferramentas reais da obra | Pendente | — |
 
@@ -23,4 +23,6 @@ Este arquivo registra a sequência de 10 entregas do Obras MVP para permitir ret
 - PR #53 integrou a etapa 6. As migrações de pacotes, comparação de revisões, capacidade, decisões de replanejamento, rascunhos e propostas estão aplicadas. Testes transacionais cobriram publicação repetida, limite de quantitativo, acesso, comparação IFC, substituição preservando compromisso publicado, descarte de rascunho e edição de proposta. Build e deploy de produção READY.
 - A validação visual autenticada das etapas 4 a 6 ainda precisa ser feita com uma sessão de teste. Não pedir senha no chat; orientar login seguro quando chegar a hora. Enquanto isso, prosseguir nas entregas que podem ser verificadas por código e banco.
 
-- A etapa 7 está no PR #54: fornecedores por obra, cotações por material/quantidade e propostas com custo entregue calculado no banco. Validar permissões, registro/edição/escolha de propostas e build antes do merge.
+- O PR #54 integrou a etapa 7: fornecedores por obra, cotações por material/quantidade e propostas com custo entregue calculado no banco. Migrações aplicadas, testes transacionais de permissões e propostas passaram; deploy de produção verificado.
+
+- A etapa 8 está no PR #55: pedido a partir da cotação escolhida, recebimentos parciais e estorno vinculados ao estoque. Migrações aplicadas e teste transacional do fluxo principal passou. Conferir build, acesso sem vínculo e limites de quantidade antes do merge.
