@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/bim_process",
+      "schedule": "*/5 * * * *"
+    }
+  ],
+  "functions": {
+    "api/bim_process.py": {
+      "maxDuration": 300
+    }
+  }
+}
