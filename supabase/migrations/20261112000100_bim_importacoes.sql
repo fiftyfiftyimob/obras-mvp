@@ -58,6 +58,26 @@ create table public.bim_quantidades (
 );
 create index bim_quantidades_elemento_idx on public.bim_quantidades (elemento_id);
 
+-- Only the upload state may be changed by browser clients.
+create or replace function private.bim_guard_importacao()
+returns trigger language plpgsql set search_path = '' as $
+begin
+  if current_setting('request.jwt.claim.role', true) = 'service_role' then
+    return new;
+  end if;
+  if old.estado <> 'aguardando_envio' or new.estado <> 'pendente'
+     or (to_jsonb(new) - 'estado') is distinct from (to_jsonb(old) - 'estado') then
+    raise exception 'A importação só pode ser marcada como enviada';
+  end if;
+  return new;
+end;
+$;
+create trigger bim_guard_importacao before update on public.bim_importacoes
+for each row execute function private.bim_guard_importacao();
+
+grant select, insert, update, delete on public.bim_importacoes, public.bim_elementos, public.bim_quantidades to service_role;
+grant usage, select on sequence public.bim_elementos_id_seq, public.bim_quantidades_id_seq to service_role;
+
 alter table public.bim_importacoes enable row level security;
 alter table public.bim_elementos enable row level security;
 alter table public.bim_quantidades enable row level security;
