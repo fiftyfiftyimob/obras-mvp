@@ -73,6 +73,9 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
   const [weekStart, setWeekStart] = useState("");
   const [weekEnd, setWeekEnd] = useState("");
   const [weekAmount, setWeekAmount] = useState("");
+  const [editingWeekId, setEditingWeekId] = useState("");
+  const [editWeekEnd, setEditWeekEnd] = useState("");
+  const [editWeekAmount, setEditWeekAmount] = useState("");
   const [baseId, setBaseId] = useState("");
   const [newId, setNewId] = useState("");
   const [differences, setDifferences] = useState<Difference[]>([]);
@@ -94,7 +97,7 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
 
   const refresh = useCallback(async () => {
     const [p, f, d, w, s, frontsResult, teamsResult, replansResult] = await Promise.all([
-      supabase.from("bim_pacotes").select("id,importacao_id,codigo,titulo,frente_id,servico_id,equipe_id,inicio,fim,quantidade_meta,unidade,estado,horas_equipe_previstas,produtividade_referencia,substituido_por").eq("obra_id", obraId).order("inicio").limit(500),
+      supabase.from("bim_pacotes").select("id,importacao_id,codigo,titulo,frente_id,servico_id,equipe_id,inicio,fim,quantidade_meta,unidade,estado,horas_equipe_previstas,produtividade_referencia,substituido_por").eq("obra_id", obraId).is("cancelado_em", null).order("inicio").limit(500),
       supabase.from("bim_pacote_fontes").select("pacote_id,quantidade_id,valor").limit(1000),
       supabase.from("bim_pacote_predecessores").select("pacote_id,predecessor_id").limit(1000),
       supabase.from("bim_pacote_semanas").select("id,pacote_id,semana_inicio,semana_fim,quantidade_meta,compromisso_id").eq("obra_id", obraId).order("semana_inicio").limit(1000),
@@ -142,12 +145,12 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
       const elementIds = Array.from(new Set(quantityRows.map((row) => row.elemento_id)));
       const [elementsResult, usedResult] = await Promise.all([
         supabase.from("bim_elementos").select("id,global_id,nome,local").in("id", elementIds),
-        supabase.from("bim_pacote_fontes").select("quantidade_id,valor").in("quantidade_id", ids),
+        supabase.from("bim_quantidades_alocadas").select("quantidade_id,valor_alocado").eq("obra_id", obraId).in("quantidade_id", ids),
       ]);
       if (elementsResult.error) throw elementsResult.error;
       if (usedResult.error) throw usedResult.error;
       const usage: Record<number,number> = {};
-      for (const row of usedResult.data || []) usage[row.quantidade_id] = (usage[row.quantidade_id] || 0) + Number(row.valor);
+      for (const row of usedResult.data || []) usage[row.quantidade_id] = Number(row.valor_alocado);
       if (!cancelled) {
         setQuantityRows(quantityRows.sort((a,b) => ids.indexOf(a.id)-ids.indexOf(b.id)));
         setElements((elementsResult.data || []) as Element[]);
@@ -184,6 +187,13 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
       setCode(""); setTitle(""); setAllocations({}); setPredecessorIds([]);
     }, "Pacote BIM criado em rascunho.");
   }
+  function discardDraft(row: Package) {
+    if (!canPlan || !window.confirm("Descartar este rascunho? A alocação IFC será liberada para outro pacote.")) return;
+    void run(async () => {
+      const { error: rpcError } = await supabase.rpc("descartar_rascunho_pacote_bim", { p_id: row.id });
+      if (rpcError) throw rpcError;
+    }, "Rascunho descartado. Os quantitativos voltaram a ficar disponíveis.");
+  }
   function approvePackage(row: Package) {
     if (!canApprove) return;
     void run(async () => {
@@ -206,6 +216,20 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
       if (rpcError) throw rpcError;
       setWeekAmount("");
     }, "Proposta semanal criada.");
+  }
+  function saveWeek(row: Week) {
+    if (!canPlan) return;
+    const qty = Number(editWeekAmount);
+    if (!editWeekEnd || editWeekEnd < row.semana_inicio || !Number.isFinite(qty) || qty <= 0) {
+      setError("Informe uma data final e quantidade válidas."); return;
+    }
+    void run(async () => {
+      const { error: rpcError } = await supabase.rpc("alterar_proposta_bim", {
+        p_id: row.id, p_semana_fim: editWeekEnd, p_quantidade: qty,
+      });
+      if (rpcError) throw rpcError;
+      setEditingWeekId(""); setEditWeekEnd(""); setEditWeekAmount("");
+    }, "Proposta semanal atualizada.");
   }
   function publishWeek(row: Week) {
     if (!canApprove) return;
@@ -335,7 +359,7 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
                   Number(p.produtividade_referencia || services.find((item) => item.id === p.servico_id)?.produtividade_referencia))} h pela produtividade de referência</p>}
             </td>
             <td>{p.substituido_por ? "Substituído" : p.estado === "aprovado" ? "Aprovado" : "Rascunho"}</td>
-            <td>{p.estado === "rascunho" && canApprove && <button className="secondary" disabled={busy || !p.horas_equipe_previstas} onClick={() => approvePackage(p)}>Aprovar</button>}</td>
+            <td>{p.estado === "rascunho" && <div className="row-actions">{canApprove && <button className="secondary" disabled={busy || !p.horas_equipe_previstas} onClick={() => approvePackage(p)}>Aprovar</button>}{canPlan && <button className="secondary" disabled={busy} onClick={() => discardDraft(p)}>Descartar rascunho</button>}</div>}</td>
           </tr>)}</tbody></table></div>}
       {packages.length >= 500 && <p className="muted">Exibindo os 500 primeiros pacotes.</p>}
     </div>
@@ -357,10 +381,27 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
             const p = packages.find((item) => item.id === w.pacote_id);
             return <tr key={w.id}>
               <td>{p ? p.codigo + " · " + p.titulo : "Pacote " + w.pacote_id.slice(0,8)}</td>
-              <td>{date(w.semana_inicio)}–{date(w.semana_fim)}</td>
-              <td>{amount(w.quantidade_meta)} {p?.unidade}</td>
+              <td>{date(w.semana_inicio)}–{editingWeekId === w.id
+                ? <input aria-label={"Fim da proposta " + w.id} type="date" value={editWeekEnd}
+                    onChange={(e) => setEditWeekEnd(e.target.value)} />
+                : date(w.semana_fim)}</td>
+              <td>{editingWeekId === w.id
+                ? <input aria-label={"Meta da proposta " + w.id} type="number" min="0.0001" step="any"
+                    value={editWeekAmount} onChange={(e) => setEditWeekAmount(e.target.value)} />
+                : amount(w.quantidade_meta)} {p?.unidade}</td>
               <td>{w.compromisso_id ? "Compromisso #" + w.compromisso_id : "Proposta"}</td>
-              <td>{!w.compromisso_id && canApprove && !p?.substituido_por && <button className="secondary" disabled={busy} onClick={() => publishWeek(w)}>Publicar no planejamento</button>}</td>
+              <td><div className="row-actions">
+                {editingWeekId === w.id ? <>
+                  <button className="secondary" disabled={busy} onClick={() => saveWeek(w)}>Salvar</button>
+                  <button className="secondary" disabled={busy} onClick={() => setEditingWeekId("")}>Cancelar</button>
+                </> : !w.compromisso_id && !p?.substituido_por && <>
+                  {canPlan && <button className="secondary" disabled={busy} onClick={() => {
+                    setEditingWeekId(w.id); setEditWeekEnd(w.semana_fim);
+                    setEditWeekAmount(String(w.quantidade_meta));
+                  }}>Editar proposta</button>}
+                  {canApprove && <button className="secondary" disabled={busy} onClick={() => publishWeek(w)}>Publicar no planejamento</button>}
+                </>}
+              </div></td>
             </tr>;
           })}</tbody></table></div>}
     </div>
