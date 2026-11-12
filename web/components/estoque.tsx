@@ -29,9 +29,9 @@ const nomes: Record<string, string> = {
 };
 const numero = (value: number) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 4 });
 
-export default function Estoque({ obraId, accessRole, ativo, materiais, almoxarifados, onChanged }: {
+export default function Estoque({ obraId, accessRole, ativo, materiais, almoxarifados, onChanged, revision }: {
   obraId: number; accessRole: string; ativo: boolean; materiais: Material[]; almoxarifados: Almoxarifado[];
-  onChanged: () => Promise<void>;
+  onChanged: () => Promise<void>; revision: number;
 }) {
   const podeVer = ["administrador","engenheiro","supervisor","estagiario","encarregado"].includes(accessRole);
   const podeOperar = ativo && ["administrador","engenheiro","supervisor","encarregado"].includes(accessRole);
@@ -66,7 +66,7 @@ export default function Estoque({ obraId, accessRole, ativo, materiais, almoxari
     setOperacoes((o.data || []) as Operacao[]);
     setMovimentos((m.data || []) as Movimento[]);
   }, [obraId,podeVer]);
-  useEffect(() => { void refresh().catch((cause) => setError(mensagemErro(cause))); }, [refresh]);
+  useEffect(() => { void refresh().catch((cause) => setError(mensagemErro(cause))); }, [refresh, revision]);
 
   async function registrar(input: Omit<OperacaoInput,"p_id">, success: string) {
     const signature = JSON.stringify(input);
