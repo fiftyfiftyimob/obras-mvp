@@ -9,6 +9,8 @@ from http.server import BaseHTTPRequestHandler
 
 from extrair_ifc import extract
 
+# CRON_SECRET is injected by Vercel; user-triggered processing uses the Supabase session.
+
 SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
 SERVICE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 HEADERS = {"apikey": SERVICE_KEY, "Authorization": "Bearer " + SERVICE_KEY}
