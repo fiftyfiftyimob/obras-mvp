@@ -17,6 +17,9 @@ type Quantidade = {
   id: number; conjunto: string | null; nome: string | null; tipo: string;
   valor: number | null; unidade: string | null; pendencia: string | null;
 };
+type Servico = { id: number; nome: string; unidade: string; ativo: boolean };
+type Vinculo = { quantidade_id: number; servico_id: number };
+const unidadeNormalizada = (valor: string | null) => (valor || "").toLowerCase().replaceAll("²", "2").replaceAll("³", "3");
 const PAGE = 50;
 const status: Record<string, string> = {
   aguardando_envio: "Aguardando envio", pendente: "Na fila",
@@ -32,6 +35,8 @@ export default function BimProject({ obraId, accessRole, ativo }: {
   const [elements, setElements] = useState<Elemento[]>([]);
   const [elementId, setElementId] = useState<number | null>(null);
   const [quantities, setQuantities] = useState<Quantidade[]>([]);
+  const [services, setServices] = useState<Servico[]>([]);
+  const [links, setLinks] = useState<Vinculo[]>([]);
   const [page, setPage] = useState(0);
   const [count, setCount] = useState(0);
   const [revision, setRevision] = useState("");
@@ -61,6 +66,22 @@ export default function BimProject({ obraId, accessRole, ativo }: {
     return () => clearInterval(timer);
   }, [imports, refresh]);
   useEffect(() => {
+    void supabase.from("servicos").select("id,nome,unidade,ativo").eq("ativo", true).order("nome")
+      .then(({ data, error: queryError }) => {
+        if (queryError) setError(mensagemErro(queryError));
+        else setServices((data || []) as Servico[]);
+      });
+  }, []);
+  useEffect(() => {
+    if (!selectedId) return;
+    void supabase.from("bim_vinculos_servico").select("quantidade_id,servico_id")
+      .eq("importacao_id", selectedId)
+      .then(({ data, error: queryError }) => {
+        if (queryError) setError(mensagemErro(queryError));
+        else setLinks((data || []) as Vinculo[]);
+      });
+  }, [selectedId]);
+  useEffect(() => {
     setElements([]); setPage(0); setCount(0); setElementId(null); setQuantities([]);
   }, [selectedId]);
   useEffect(() => {
@@ -88,6 +109,34 @@ export default function BimProject({ obraId, accessRole, ativo }: {
     return () => { cancelled = true; };
   }, [elementId]);
   const current = imports.find((row) => row.id === selectedId);
+
+  async function linkQuantity(quantity: Quantidade, serviceId: string) {
+    if (!current || !canUpload) return;
+    setError(""); setBusy(true);
+    try {
+      if (serviceId) {
+        const service = services.find((item) => item.id === Number(serviceId));
+        if (!service || unidadeNormalizada(service.unidade) !== unidadeNormalizada(quantity.unidade)) {
+          throw new Error("A unidade do serviço deve corresponder à medida do IFC.");
+        }
+        const { error: saveError } = await supabase.from("bim_vinculos_servico").upsert({
+          quantidade_id: quantity.id, obra_id: obraId, importacao_id: current.id,
+          servico_id: service.id,
+        }, { onConflict: "quantidade_id" });
+        if (saveError) throw saveError;
+        setLinks((previous) => [...previous.filter((item) => item.quantidade_id !== quantity.id),
+          { quantidade_id: quantity.id, servico_id: service.id }]);
+      } else {
+        const { error: saveError } = await supabase.from("bim_vinculos_servico")
+          .delete().eq("quantidade_id", quantity.id).eq("obra_id", obraId);
+        if (saveError) throw saveError;
+        setLinks((previous) => previous.filter((item) => item.quantidade_id !== quantity.id));
+      }
+      setNotice("Vínculo com serviço atualizado.");
+    } catch (cause) {
+      setError(mensagemErro(cause));
+    } finally { setBusy(false); }
+  }
 
   async function processRevision(id: string) {
     const { data } = await supabase.auth.getSession();
@@ -241,11 +290,19 @@ export default function BimProject({ obraId, accessRole, ativo }: {
       {elementId && <div className="panel editor">
         <h3>Quantitativos do elemento</h3>
         {quantities.length ? <div className="table-wrap responsive-table"><table>
-          <thead><tr><th>Conjunto</th><th>Medida</th><th>Valor</th><th>Unidade</th><th>Pendência</th></tr></thead>
+          <thead><tr><th>Conjunto</th><th>Medida</th><th>Valor</th><th>Unidade</th><th>Pendência</th><th>Serviço</th></tr></thead>
           <tbody>{quantities.map((row) => <tr key={row.id}>
             <td>{row.conjunto || "—"}</td><td>{row.nome || row.tipo}</td>
             <td>{row.valor ?? "—"}</td><td>{row.unidade || "—"}</td>
             <td>{row.pendencia || "—"}</td>
+            <td><select aria-label={"Serviço para " + (row.nome || row.tipo)}
+              disabled={!canUpload || busy || !row.valor || Boolean(row.pendencia)}
+              value={links.find((item) => item.quantidade_id === row.id)?.servico_id || ""}
+              onChange={(event) => void linkQuantity(row, event.target.value)}>
+              <option value="">Sem vínculo</option>
+              {services.filter((item) => unidadeNormalizada(item.unidade) === unidadeNormalizada(row.unidade))
+                .map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}
+            </select></td>
           </tr>)}</tbody>
         </table></div> : <p className="muted">Nenhum quantitativo declarado neste elemento.</p>}
       </div>}
