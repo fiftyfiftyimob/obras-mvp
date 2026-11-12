@@ -60,7 +60,7 @@ create index bim_quantidades_elemento_idx on public.bim_quantidades (elemento_id
 
 -- Only the upload state may be changed by browser clients.
 create or replace function private.bim_guard_importacao()
-returns trigger language plpgsql set search_path = '' as $
+returns trigger language plpgsql set search_path = '' as $$
 begin
   if current_setting('request.jwt.claim.role', true) = 'service_role' then
     return new;
@@ -71,7 +71,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 create trigger bim_guard_importacao before update on public.bim_importacoes
 for each row execute function private.bim_guard_importacao();
 
