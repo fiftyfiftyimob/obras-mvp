@@ -101,8 +101,8 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
       allRows(() => supabase.from("bim_pacotes")
         .select("id,importacao_id,codigo,titulo,frente_id,servico_id,equipe_id,inicio,fim,quantidade_meta,unidade,estado,horas_equipe_previstas,produtividade_referencia,substituido_por")
         .eq("obra_id", obraId).is("cancelado_em", null).order("inicio").order("id")),
-      allRows(() => supabase.from("bim_pacote_fontes").select("pacote_id,quantidade_id,valor").order("pacote_id")),
-      allRows(() => supabase.from("bim_pacote_predecessores").select("pacote_id,predecessor_id").order("pacote_id")),
+      allRows(() => supabase.from("bim_pacote_fontes").select("pacote_id,quantidade_id,valor").order("pacote_id").order("quantidade_id")),
+      allRows(() => supabase.from("bim_pacote_predecessores").select("pacote_id,predecessor_id").order("pacote_id").order("predecessor_id")),
       allRows(() => supabase.from("bim_pacote_semanas")
         .select("id,pacote_id,semana_inicio,semana_fim,quantidade_meta,compromisso_id")
         .eq("obra_id", obraId).order("semana_inicio").order("id")),
