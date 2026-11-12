@@ -127,7 +127,7 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
         .select("id,elemento_id,nome,tipo,valor,unidade").in("id", ids);
       if (quantitiesResult.error) throw quantitiesResult.error;
       const quantityRows = (quantitiesResult.data || []) as Quantity[];
-      const elementIds = [...new Set(quantityRows.map((row) => row.elemento_id))];
+      const elementIds = Array.from(new Set(quantityRows.map((row) => row.elemento_id)));
       const [elementsResult, usedResult] = await Promise.all([
         supabase.from("bim_elementos").select("id,global_id,nome,local").in("id", elementIds),
         supabase.from("bim_pacote_fontes").select("quantidade_id,valor").in("quantidade_id", ids),
