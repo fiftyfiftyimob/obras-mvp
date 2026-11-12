@@ -8,6 +8,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler
 
 
+# Runtime configuration is supplied per Vercel environment.
 SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
 SERVICE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 HEADERS = {"apikey": SERVICE_KEY, "Authorization": "Bearer " + SERVICE_KEY}
