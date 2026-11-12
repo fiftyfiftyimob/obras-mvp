@@ -7,6 +7,8 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler
 
+from bim.extrair_ifc import extract
+
 
 # Runtime configuration is supplied per Vercel environment.
 SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
@@ -32,7 +34,6 @@ def table_path(table, query=""):
     return "/rest/v1/" + table + ("?" + query if query else "")
 
 def process(job):
-    from extrair_ifc import extract
     job_id = job["id"]
     path = urllib.parse.quote(job["caminho_arquivo"], safe="/")
     with tempfile.TemporaryDirectory(prefix="obras-ifc-") as directory:
