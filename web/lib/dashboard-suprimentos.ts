@@ -60,7 +60,7 @@ export function makeSupplyDashboard(data: SupplyData, today: string): SupplyMode
     g.events.push({ date: p.entrega_prevista, amount: remaining, kind: "entrada" });
   }
   const riscos: SupplyRisk[] = [];
-  for (const g of groups.values()) {
+  for (const g of Array.from(groups.values())) {
     let saldo = g.fisico;
     let shortage = 0;
     let first = "";
@@ -110,7 +110,7 @@ export function makeSupplyDashboard(data: SupplyData, today: string): SupplyMode
       cotacoes_abertas: data.cotacoes_materiais.filter((c) => c.estado === "aberta").length,
       combinacoes_em_risco: riscos.length,
     },
-    fornecedores: [...supplierTotals.values()].sort((a, b) => b.contratado-a.contratado),
+    fornecedores: Array.from(supplierTotals.values()).sort((a, b) => b.contratado-a.contratado),
     diferenca_cotacoes,
   };
 }
