@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler
 SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
 SERVICE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 HEADERS = {"apikey": SERVICE_KEY, "Authorization": "Bearer " + SERVICE_KEY}
+PUBLIC_KEY = os.environ.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY") or "sb_publishable_fq3Er2EEo_nHILH3Sg5P1w_89bTkpH4"
 BATCH = 200
 
 def api(method, path, data=None, extra=None):
@@ -74,26 +75,22 @@ def process(job):
         "concluido_em": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     })
 
-def claim(job_id=None, user_token=None):
-    payload = {"p_id": job_id} if job_id else {}
-    headers = {"apikey": SERVICE_KEY, "Authorization": "Bearer " + (user_token or SERVICE_KEY)}
-    rows = api("POST", "/rest/v1/rpc/bim_reivindicar_importacao", payload, headers)
+def claim(job_id=None):
+    rows = api("POST", "/rest/v1/rpc/bim_reivindicar_importacao", {"p_id": job_id})
     return rows[0] if rows else None
 
 def user_job(user_token, job_id):
-    if not job_id:
-        return None
-    request = urllib.request.Request(
-        SUPABASE_URL + "/rest/v1/bim_importacoes?id=eq." + urllib.parse.quote(job_id, safe="") +
-        "&select=id,obra_id,caminho_arquivo,tamanho_bytes,tentativas,estado",
-        headers={"apikey": SERVICE_KEY, "Authorization": "Bearer " + user_token},
-    )
+    if not user_token or not job_id:
+        return False
+    headers = {"apikey": PUBLIC_KEY, "Authorization": "Bearer " + user_token}
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            rows = json.loads(response.read())
-            return rows[0] if rows else None
-    except urllib.error.HTTPError:
-        return None
+        user = api("GET", "/auth/v1/user", extra=headers)
+        query = urllib.parse.urlencode({"id": "eq." + job_id, "criado_por": "eq." + user["id"], "select": "id"})
+        return bool(api("GET", table_path("bim_importacoes", query), extra=headers))
+    except RuntimeError as error:
+        if str(error).startswith(("Supabase HTTP 401:", "Supabase HTTP 403:")):
+            return False
+        raise
 
 def authorized(request):
     expected = os.environ.get("BIM_WORKER_SECRET") or os.environ.get("CRON_SECRET")
@@ -116,12 +113,12 @@ class handler(BaseHTTPRequestHandler):
             self.respond(400, {"ok": False, "error": "JSON inválido"})
             return
         requested_id = body.get("import_id")
-        if not is_secret and not requested_id:
-            self.respond(401, {"ok": False, "error": "unauthorized"})
-            return
         job = None
         try:
-            job = claim(requested_id, None if is_secret else supplied)
+            if not is_secret and not user_job(supplied, requested_id):
+                self.respond(403, {"ok": False, "error": "Somente quem enviou a revisão pode iniciar a extração manual."})
+                return
+            job = claim(requested_id)
             if not job:
                 self.respond(200, {"ok": True, "status": "empty"})
                 return
