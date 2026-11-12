@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase, mensagemErro } from "../lib/supabase";
 import { uploadIfc } from "../lib/bim-upload";
+import BimPlanning from "./bim-planning";
 
 type Importacao = {
   id: string; revisao: string; nome_arquivo: string; caminho_arquivo: string;
@@ -307,5 +308,6 @@ export default function BimProject({ obraId, accessRole, ativo }: {
         </table></div> : <p className="muted">Nenhum quantitativo declarado neste elemento.</p>}
       </div>}
     </div>}
+    <BimPlanning obraId={obraId} accessRole={accessRole} ativo={ativo} revisoes={imports} />
   </section>;
 }
