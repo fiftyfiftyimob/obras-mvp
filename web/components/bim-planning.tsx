@@ -3,7 +3,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { supabase, mensagemErro } from "../lib/supabase";
 
 type Revision = { id: string; revisao: string; estado: string };
-type Service = { id: number; nome: string; unidade: string; ativo: boolean };
+type Service = { id: number; nome: string; unidade: string; ativo: boolean; produtividade_referencia: number | null };
 type Front = { id: number; nome: string };
 type Team = { id: number; nome: string };
 type Link = { quantidade_id: number; servico_id: number };
@@ -13,6 +13,7 @@ type Package = {
   id: string; importacao_id: string; codigo: string; titulo: string; frente_id: number;
   servico_id: number; equipe_id: number; inicio: string; fim: string;
   quantidade_meta: number; unidade: string; estado: string;
+  horas_equipe_previstas: number | null; produtividade_referencia: number | null; substituido_por: string | null;
 };
 type Source = { pacote_id: string; quantidade_id: number; valor: number };
 type Dependency = { pacote_id: string; predecessor_id: string };
@@ -20,6 +21,8 @@ type Week = {
   id: string; pacote_id: string; semana_inicio: string; semana_fim: string;
   quantidade_meta: number; compromisso_id: number | null;
 };
+type Replan = { id: string; pacote_id: string; nova_importacao_id: string; decisao: string;
+  pacote_novo_id: string | null; motivo: string; registrado_em: string };
 type Difference = {
   global_id: string | null; classe_anterior: string | null; classe_nova: string | null;
   elemento_anterior: string | null; elemento_novo: string | null;
@@ -46,6 +49,8 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
   const [sources, setSources] = useState<Source[]>([]);
   const [dependencies, setDependencies] = useState<Dependency[]>([]);
   const [weeks, setWeeks] = useState<Week[]>([]);
+  const [replans, setReplans] = useState<Replan[]>([]);
+  const [hoursByPackage, setHoursByPackage] = useState<Record<string,string>>({});
   const [services, setServices] = useState<Service[]>([]);
   const [fronts, setFronts] = useState<Front[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -71,6 +76,11 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
   const [baseId, setBaseId] = useState("");
   const [newId, setNewId] = useState("");
   const [differences, setDifferences] = useState<Difference[]>([]);
+  const [replanPackageId, setReplanPackageId] = useState("");
+  const [replanRevisionId, setReplanRevisionId] = useState("");
+  const [replanDecision, setReplanDecision] = useState("manter");
+  const [replanNewPackageId, setReplanNewPackageId] = useState("");
+  const [replanReason, setReplanReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -83,22 +93,24 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
   }, [revisoes, revisionId, baseId, newId]);
 
   const refresh = useCallback(async () => {
-    const [p, f, d, w, s, frontsResult, teamsResult] = await Promise.all([
-      supabase.from("bim_pacotes").select("id,importacao_id,codigo,titulo,frente_id,servico_id,equipe_id,inicio,fim,quantidade_meta,unidade,estado").eq("obra_id", obraId).order("inicio").limit(500),
+    const [p, f, d, w, s, frontsResult, teamsResult, replansResult] = await Promise.all([
+      supabase.from("bim_pacotes").select("id,importacao_id,codigo,titulo,frente_id,servico_id,equipe_id,inicio,fim,quantidade_meta,unidade,estado,horas_equipe_previstas,produtividade_referencia,substituido_por").eq("obra_id", obraId).order("inicio").limit(500),
       supabase.from("bim_pacote_fontes").select("pacote_id,quantidade_id,valor").limit(1000),
       supabase.from("bim_pacote_predecessores").select("pacote_id,predecessor_id").limit(1000),
       supabase.from("bim_pacote_semanas").select("id,pacote_id,semana_inicio,semana_fim,quantidade_meta,compromisso_id").eq("obra_id", obraId).order("semana_inicio").limit(1000),
-      supabase.from("servicos").select("id,nome,unidade,ativo").eq("ativo", true).order("nome"),
+      supabase.from("servicos").select("id,nome,unidade,ativo,produtividade_referencia").eq("ativo", true).order("nome"),
       supabase.from("frentes").select("id,nome").eq("obra_id", obraId).eq("ativo", true).order("nome"),
       supabase.from("equipes").select("id,nome").eq("obra_id", obraId).eq("ativo", true).order("nome"),
+      supabase.from("bim_replanejamentos").select("id,pacote_id,nova_importacao_id,decisao,pacote_novo_id,motivo,registrado_em").eq("obra_id", obraId).order("registrado_em", { ascending: false }).limit(500),
     ]);
-    for (const result of [p,f,d,w,s,frontsResult,teamsResult]) if (result.error) throw result.error;
+    for (const result of [p,f,d,w,s,frontsResult,teamsResult,replansResult]) if (result.error) throw result.error;
     const packageRows = (p.data || []) as Package[];
     const packageIds = new Set(packageRows.map((row) => row.id));
     setPackages(packageRows);
     setSources(((f.data || []) as Source[]).filter((row) => packageIds.has(row.pacote_id)));
     setDependencies(((d.data || []) as Dependency[]).filter((row) => packageIds.has(row.pacote_id)));
     setWeeks((w.data || []) as Week[]);
+    setReplans((replansResult.data || []) as Replan[]);
     setServices((s.data || []) as Service[]);
     setFronts((frontsResult.data || []) as Front[]);
     setTeams((teamsResult.data || []) as Team[]);
@@ -210,14 +222,48 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
       });
       if (rpcError) throw rpcError;
       setDifferences((data || []) as Difference[]);
+      setReplanRevisionId(newId);
     }, "Comparação concluída. Confira os itens alterados e os identificadores incertos.");
   }
 
+  function saveCapacity(row: Package) {
+    if (!canPlan) return;
+    const hours = Number(hoursByPackage[row.id] || row.horas_equipe_previstas);
+    if (!Number.isFinite(hours) || hours <= 0) { setError("Informe as horas previstas da equipe."); return; }
+    void run(async () => {
+      const { error: rpcError } = await supabase.rpc("definir_capacidade_pacote_bim", {
+        p_id: row.id, p_horas: hours,
+      });
+      if (rpcError) throw rpcError;
+    }, "Capacidade do pacote registrada.");
+  }
+  function recordReplan(event: FormEvent) {
+    event.preventDefault();
+    if (!canApprove) return;
+    const oldPackage = packages.find((p) => p.id === replanPackageId);
+    if (!oldPackage || !replanRevisionId || !replanReason.trim()
+      || (replanDecision === "substituir" && !replanNewPackageId)) {
+      setError("Selecione o pacote, a nova revisão, a decisão e o motivo."); return;
+    }
+    void run(async () => {
+      const { error: rpcError } = await supabase.rpc("registrar_replanejamento_bim", {
+        p_pacote_id: replanPackageId, p_nova_importacao_id: replanRevisionId,
+        p_decisao: replanDecision, p_motivo: replanReason.trim(),
+        p_pacote_novo_id: replanDecision === "substituir" ? replanNewPackageId : null,
+      });
+      if (rpcError) throw rpcError;
+      setReplanReason(""); setReplanNewPackageId("");
+    }, "Decisão de replanejamento registrada, mantendo a linha de base.");
+  }
   const selectedService = services.find((s) => s.id === Number(serviceId));
   const selectedPackage = packages.find((p) => p.id === packageId);
   const planned = selectedPackage ? weeks.filter((w) => w.pacote_id === selectedPackage.id)
     .reduce((sum,w) => sum + Number(w.quantidade_meta),0) : 0;
   const changed = differences.filter((d) => d.situacao !== "igual");
+  const oldPackage = packages.find((p) => p.id === replanPackageId);
+  const availableNewPackages = packages.filter((p) => oldPackage && p.importacao_id === replanRevisionId
+    && p.estado === "aprovado" && !p.substituido_por && p.servico_id === oldPackage.servico_id
+    && p.frente_id === oldPackage.frente_id);
   return <section aria-label="Planejamento BIM">
     <div className="section-heading"><div><h2>Planejamento BIM</h2>
       <p className="muted">Organize os quantitativos conferidos em pacotes, aprove o cronograma e publique metas semanais com origem rastreável.</p>
@@ -269,7 +315,7 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
     <div className="panel editor">
       <h3>Cronograma mestre</h3>
       {!packages.length ? <p className="muted">Nenhum pacote da EAP cadastrado.</p> :
-        <div className="table-wrap responsive-table"><table><thead><tr><th>Pacote</th><th>Revisão</th><th>Frente / serviço</th><th>Equipe</th><th>Período</th><th>Meta</th><th>Estado</th><th></th></tr></thead>
+        <div className="table-wrap responsive-table"><table><thead><tr><th>Pacote</th><th>Revisão</th><th>Frente / serviço</th><th>Equipe</th><th>Período</th><th>Meta</th><th>Capacidade</th><th>Estado</th><th></th></tr></thead>
           <tbody>{packages.map((p) => <tr key={p.id}>
             <td><strong>{p.codigo}</strong> · {p.titulo}
               {dependencies.filter((d) => d.pacote_id === p.id).map((d) =>
@@ -278,8 +324,18 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
             <td>{fronts.find((f) => f.id === p.frente_id)?.nome || "#" + p.frente_id} · {services.find((s) => s.id === p.servico_id)?.nome || "#" + p.servico_id}</td>
             <td>{teams.find((t) => t.id === p.equipe_id)?.nome || "#" + p.equipe_id}</td>
             <td>{date(p.inicio)}–{date(p.fim)}</td><td>{amount(p.quantidade_meta)} {p.unidade}</td>
-            <td>{p.estado === "aprovado" ? "Aprovado" : "Rascunho"}</td>
-            <td>{p.estado === "rascunho" && canApprove && <button className="secondary" disabled={busy} onClick={() => approvePackage(p)}>Aprovar</button>}</td>
+            <td>{p.estado === "rascunho" && canPlan
+              ? <><input aria-label={"Horas disponíveis para " + p.codigo} type="number" min="0.01" step="any"
+                  value={hoursByPackage[p.id] ?? (p.horas_equipe_previstas ?? "")}
+                  onChange={(e) => setHoursByPackage((current) => ({ ...current, [p.id]: e.target.value }))} />
+                  <button className="secondary" disabled={busy} onClick={() => saveCapacity(p)}>Salvar horas</button></>
+              : <>{amount(p.horas_equipe_previstas)} h</>}
+              {Number(p.produtividade_referencia || services.find((item) => item.id === p.servico_id)?.produtividade_referencia) > 0 &&
+                <p className="muted">Necessárias: {amount(Number(p.quantidade_meta) /
+                  Number(p.produtividade_referencia || services.find((item) => item.id === p.servico_id)?.produtividade_referencia))} h pela produtividade de referência</p>}
+            </td>
+            <td>{p.substituido_por ? "Substituído" : p.estado === "aprovado" ? "Aprovado" : "Rascunho"}</td>
+            <td>{p.estado === "rascunho" && canApprove && <button className="secondary" disabled={busy || !p.horas_equipe_previstas} onClick={() => approvePackage(p)}>Aprovar</button>}</td>
           </tr>)}</tbody></table></div>}
       {packages.length >= 500 && <p className="muted">Exibindo os 500 primeiros pacotes.</p>}
     </div>
@@ -287,7 +343,7 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
       <h3>Compromissos semanais do BIM</h3>
       {canPlan && <form onSubmit={createWeek}>
         <div className="form-grid">
-          <label>Pacote aprovado <select required value={packageId} onChange={(e) => setPackageId(e.target.value)}><option value="">Selecione</option>{packages.filter((p) => p.estado === "aprovado").map((p) => <option key={p.id} value={p.id}>{p.codigo} · {p.titulo}</option>)}</select></label>
+          <label>Pacote aprovado <select required value={packageId} onChange={(e) => setPackageId(e.target.value)}><option value="">Selecione</option>{packages.filter((p) => p.estado === "aprovado" && !p.substituido_por).map((p) => <option key={p.id} value={p.id}>{p.codigo} · {p.titulo}</option>)}</select></label>
           <label>Início da semana <input required type="date" value={weekStart} onChange={(e) => setWeekStart(e.target.value)} /></label>
           <label>Fim da semana <input required type="date" value={weekEnd} onChange={(e) => setWeekEnd(e.target.value)} /></label>
           <label>Meta da semana <input required type="number" min="0.0001" step="any" value={weekAmount} onChange={(e) => setWeekAmount(e.target.value)} /></label>
@@ -304,7 +360,7 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
               <td>{date(w.semana_inicio)}–{date(w.semana_fim)}</td>
               <td>{amount(w.quantidade_meta)} {p?.unidade}</td>
               <td>{w.compromisso_id ? "Compromisso #" + w.compromisso_id : "Proposta"}</td>
-              <td>{!w.compromisso_id && canApprove && <button className="secondary" disabled={busy} onClick={() => publishWeek(w)}>Publicar no planejamento</button>}</td>
+              <td>{!w.compromisso_id && canApprove && !p?.substituido_por && <button className="secondary" disabled={busy} onClick={() => publishWeek(w)}>Publicar no planejamento</button>}</td>
             </tr>;
           })}</tbody></table></div>}
     </div>
@@ -329,6 +385,47 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
               {d.observacao && <p className="muted">{d.observacao}</p>}</td>
           </tr>)}</tbody></table></div>
       </>}
+    </div>
+    <div className="panel editor">
+      <h3>Decisão de replanejamento</h3>
+      <p className="muted">A linha de base aprovada permanece registrada. Ao substituir, o pacote antigo deixa de receber novas semanas; os compromissos já publicados continuam no histórico.</p>
+      {canApprove && concluded.length > 1 && <form onSubmit={recordReplan}>
+        <div className="form-grid">
+          <label>Pacote da linha de base <select required value={replanPackageId}
+            onChange={(e) => { setReplanPackageId(e.target.value); setReplanNewPackageId(""); }}>
+            <option value="">Selecione</option>{packages.filter((p) => p.estado === "aprovado" && !p.substituido_por).map((p) =>
+              <option key={p.id} value={p.id}>{p.codigo} · {p.titulo}</option>)}
+          </select></label>
+          <label>Nova revisão <select required value={replanRevisionId}
+            onChange={(e) => { setReplanRevisionId(e.target.value); setReplanNewPackageId(""); }}>
+            <option value="">Selecione</option>{concluded.filter((r) => r.id !== oldPackage?.importacao_id).map((r) =>
+              <option key={r.id} value={r.id}>{r.revisao}</option>)}
+          </select></label>
+          <label>Decisão <select value={replanDecision} onChange={(e) => setReplanDecision(e.target.value)}>
+            <option value="manter">Manter linha de base</option><option value="substituir">Substituir por novo pacote</option>
+          </select></label>
+          {replanDecision === "substituir" && <label>Novo pacote aprovado <select required value={replanNewPackageId}
+            onChange={(e) => setReplanNewPackageId(e.target.value)}>
+            <option value="">Selecione</option>{availableNewPackages.map((p) =>
+              <option key={p.id} value={p.id}>{p.codigo} · {p.titulo} · {amount(p.quantidade_meta)} {p.unidade}</option>)}
+          </select></label>}
+          <label>Motivo e decisão técnica <textarea required minLength={5} maxLength={1000}
+            value={replanReason} onChange={(e) => setReplanReason(e.target.value)}
+            placeholder="Descreva o impacto da revisão e como o saldo de trabalho foi tratado." /></label>
+        </div>
+        {replanDecision === "substituir" && !availableNewPackages.length && <p className="notice">Crie e aprove antes um pacote da nova revisão, com o mesmo serviço e frente. Aloque apenas o trabalho a planejar na nova linha de base.</p>}
+        <button className="primary" disabled={busy || !replanPackageId || !replanRevisionId
+          || (replanDecision === "substituir" && !replanNewPackageId)}>Registrar decisão</button>
+      </form>}
+      {!replans.length ? <p className="muted">Nenhuma decisão registrada entre revisões.</p> :
+        <div className="table-wrap responsive-table"><table><thead><tr><th>Registrado em</th><th>Pacote anterior</th><th>Nova revisão</th><th>Decisão</th><th>Motivo</th></tr></thead>
+          <tbody>{replans.map((r) => <tr key={r.id}>
+            <td>{new Date(r.registrado_em).toLocaleString("pt-BR")}</td>
+            <td>{packages.find((p) => p.id === r.pacote_id)?.codigo || r.pacote_id.slice(0,8)}</td>
+            <td>{revisoes.find((i) => i.id === r.nova_importacao_id)?.revisao || r.nova_importacao_id.slice(0,8)}</td>
+            <td>{r.decisao === "substituir" ? "Substituído por " + (packages.find((p) => p.id === r.pacote_novo_id)?.codigo || "outro pacote") : "Mantido"}</td>
+            <td>{r.motivo}</td>
+          </tr>)}</tbody></table></div>}
     </div>
   </section>;
 }
