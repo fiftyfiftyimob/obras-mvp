@@ -12,8 +12,8 @@ Este arquivo registra a sequência de 10 entregas do Obras MVP para permitir ret
 | 6 | Cronograma mestre, pacotes da EAP e comparação de revisões BIM | Integrada | PR #53 |
 | 7 | Fornecedores e mapa de cotações com custo entregue e prazo | Integrada | PR #54 |
 | 8 | Pedidos e recebimentos parciais ligados ao estoque | Integrada | PR #55 |
-| 9 | Previsão de falta e indicadores de custo e abastecimento no Dashboard, com exportação | Em validação | PR #56 |
-| 10 | Homologação do piloto e conectores priorizados conforme as ferramentas reais da obra | Pendente | — |
+| 9 | Previsão de falta e indicadores de custo e abastecimento no Dashboard, com exportação | Integrada | PR #56 |
+| 10 | Homologação do piloto e conectores priorizados conforme as ferramentas reais da obra | Em validação | PR #57 |
 
 ## Critérios de retomada
 
@@ -28,3 +28,5 @@ Este arquivo registra a sequência de 10 entregas do Obras MVP para permitir ret
 - O PR #55 integrou a etapa 8: pedido a partir da cotação escolhida, recebimentos parciais e estorno vinculados ao estoque. Migrações aplicadas e teste transacional do fluxo principal passou. Build READY e testes de excesso, idempotência, estorno e acesso sem vínculo passaram.
 
 - A etapa 9 está no PR #56: projeção de faltas por material/almoxarifado e data, indicadores de custo e abastecimento, exportação Excel para Power BI. Validar cálculo e build antes do merge.
+
+- O PR #56 integrou a etapa 9; build e deploy de produção READY. A etapa 10 está no PR #57 com teste integrado revertido, auditoria de segurança e relatório em `docs/homologacao-piloto-bim-suprimentos.md`. Faltam validação visual autenticada e nomes das ferramentas BIM/ERP para priorizar conector específico. Não marcar 10/10 antes desses itens.
