@@ -3,6 +3,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { supabase, mensagemErro, hoje } from "../lib/supabase";
 import Estoque from "./estoque";
 import Composicoes from "./composicoes";
+import TrocaCompras from "./troca-compras";
 import Cotacoes from "./cotacoes";
 import PedidosCompra from "./pedidos-compra";
 
@@ -35,6 +36,7 @@ export default function Materiais({ obraId, accessRole, ativo }: { obraId: numbe
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [cotacoesRevision, setCotacoesRevision] = useState(0);
+  const [catalogRevision, setCatalogRevision] = useState(0);
   const [estoqueRevision, setEstoqueRevision] = useState(0);
   const [nomeMaterial, setNomeMaterial] = useState("");
   const [especificacao, setEspecificacao] = useState("");
@@ -164,6 +166,9 @@ export default function Materiais({ obraId, accessRole, ativo }: { obraId: numbe
       <p className="muted">{materiais.length} materiais · {almoxarifados.length} almoxarifados cadastrados nesta obra.</p>
     </div>}
     <Composicoes obraId={obraId} accessRole={accessRole} ativo={ativo} materiais={materiais} />
+    <TrocaCompras obraId={obraId} accessRole={accessRole} ativo={ativo} onImported={async () => {
+      await refresh(); setCatalogRevision((v) => v + 1);
+    }} />
     {podeSolicitar && <div className="panel editor">
       <h3>Nova solicitação</h3>
       {(!materiais.length || !almoxarifados.length || !frentes.length) && <p className="notice">Cadastre ao menos um material, um almoxarifado e uma frente ativa antes de solicitar.</p>}
@@ -206,7 +211,7 @@ export default function Materiais({ obraId, accessRole, ativo }: { obraId: numbe
       {solicitacoes.length >= 500 && <p className="muted">Exibindo as 500 solicitações mais recentes.</p>}
     </div>
     <Estoque obraId={obraId} accessRole={accessRole} ativo={ativo} materiais={materiais} almoxarifados={almoxarifados} onChanged={refresh} revision={estoqueRevision} />
-    <Cotacoes obraId={obraId} accessRole={accessRole} ativo={ativo} materiais={materiais} solicitacoes={solicitacoes} onChanged={() => setCotacoesRevision((v) => v + 1)} />
+    <Cotacoes key={catalogRevision} obraId={obraId} accessRole={accessRole} ativo={ativo} materiais={materiais} solicitacoes={solicitacoes} onChanged={() => setCotacoesRevision((v) => v + 1)} />
     <PedidosCompra obraId={obraId} accessRole={accessRole} ativo={ativo} materiais={materiais} almoxarifados={almoxarifados} onChanged={async () => { await refresh(); setEstoqueRevision((v) => v + 1); }} cotacoesRevision={cotacoesRevision} />
   </section>;
 }
