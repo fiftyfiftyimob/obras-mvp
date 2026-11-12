@@ -9,6 +9,7 @@ type Importacao = {
   tamanho_bytes: number; estado: string; schema_ifc: string | null;
   total_elementos: number; total_pendencias: number; erro: string | null;
   criado_em: string; tentativas: number;
+  conferida_em: string | null; conferida_por: string | null;
 };
 type Elemento = {
   id: number; global_id: string | null; classe: string; nome: string | null;
@@ -31,6 +32,7 @@ export default function BimProject({ obraId, accessRole, ativo }: {
   obraId: number; accessRole: string; ativo: boolean;
 }) {
   const canUpload = ativo && ["administrador", "engenheiro", "supervisor"].includes(accessRole);
+  const canReview = ativo && ["administrador", "engenheiro"].includes(accessRole);
   const [imports, setImports] = useState<Importacao[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [elements, setElements] = useState<Elemento[]>([]);
@@ -181,6 +183,28 @@ export default function BimProject({ obraId, accessRole, ativo }: {
     } finally { setBusy(false); }
   }
 
+  async function reviewCurrent() {
+    if (!current || !canReview || current.estado !== "concluida" || current.conferida_em) return;
+    const detail = current.total_pendencias
+      ? `Esta revisão possui ${current.total_pendencias} pendência(s). Confira os elementos e use apenas medidas válidas. Liberar para planejamento?`
+      : "Você conferiu os elementos, quantitativos e unidades desta revisão? Liberar para planejamento?";
+    if (!window.confirm(detail)) return;
+    setError(""); setNotice(""); setBusy(true);
+    try {
+      const { data: identity, error: identityError } = await supabase.auth.getUser();
+      if (identityError || !identity.user) throw identityError || new Error("Entre novamente para conferir a revisão.");
+      const { data, error: saveError } = await supabase.from("bim_importacoes")
+        .update({ conferida_por: identity.user.id }).eq("id", current.id)
+        .eq("obra_id", obraId).eq("estado", "concluida")
+        .is("conferida_em", null).select("id").maybeSingle();
+      if (saveError) throw saveError;
+      if (!data) throw new Error("A revisão não pôde ser conferida. Atualize e tente novamente.");
+      setNotice("Revisão conferida e liberada para o planejamento BIM.");
+      await refresh();
+    } catch (cause) { setError(mensagemErro(cause)); }
+    finally { setBusy(false); }
+  }
+
   async function send() {
     if (!canUpload || !file) return;
     setError(""); setNotice("");
@@ -262,6 +286,12 @@ export default function BimProject({ obraId, accessRole, ativo }: {
         {current && <div>
           <p><strong>Arquivo:</strong> {current.nome_arquivo} · <strong>Formato:</strong> {current.schema_ifc || "Aguardando extração"}</p>
           <p><strong>Estado:</strong> {status[current.estado] || current.estado} · <strong>Elementos:</strong> {current.total_elementos} · <strong>Pendências:</strong> {current.total_pendencias}</p>
+          {current.estado === "concluida" && <p className={current.conferida_em ? "alert success" : "notice"}>
+            {current.conferida_em ? `Conferida em ${new Date(current.conferida_em).toLocaleString("pt-BR")}. Liberada para pacotes BIM.`
+              : "A extração terminou. Confira elementos, medidas e unidades antes de liberar esta revisão para o planejamento."}
+          </p>}
+          {canReview && current.estado === "concluida" && !current.conferida_em &&
+            <button className="primary" disabled={busy} onClick={() => void reviewCurrent()}>Conferir e liberar revisão</button>}
           {canUpload && current.estado === "pendente" &&
             <button className="secondary" disabled={busy} onClick={() => void retryCurrent()}>Tentar extração</button>}
           {canUpload && ["aguardando_envio", "pendente", "falha"].includes(current.estado) &&
