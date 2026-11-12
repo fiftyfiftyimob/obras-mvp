@@ -1,6 +1,7 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { supabase, mensagemErro } from "../lib/supabase";
+import { allRows } from "../lib/operacional";
 
 type Revision = { id: string; revisao: string; estado: string };
 type Service = { id: number; nome: string; unidade: string; ativo: boolean; produtividade_referencia: number | null };
@@ -96,27 +97,35 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
   }, [revisoes, revisionId, baseId, newId]);
 
   const refresh = useCallback(async () => {
-    const [p, f, d, w, s, frontsResult, teamsResult, replansResult] = await Promise.all([
-      supabase.from("bim_pacotes").select("id,importacao_id,codigo,titulo,frente_id,servico_id,equipe_id,inicio,fim,quantidade_meta,unidade,estado,horas_equipe_previstas,produtividade_referencia,substituido_por").eq("obra_id", obraId).is("cancelado_em", null).order("inicio").limit(500),
-      supabase.from("bim_pacote_fontes").select("pacote_id,quantidade_id,valor").limit(1000),
-      supabase.from("bim_pacote_predecessores").select("pacote_id,predecessor_id").limit(1000),
-      supabase.from("bim_pacote_semanas").select("id,pacote_id,semana_inicio,semana_fim,quantidade_meta,compromisso_id").eq("obra_id", obraId).order("semana_inicio").limit(1000),
-      supabase.from("servicos").select("id,nome,unidade,ativo,produtividade_referencia").eq("ativo", true).order("nome"),
-      supabase.from("frentes").select("id,nome").eq("obra_id", obraId).eq("ativo", true).order("nome"),
-      supabase.from("equipes").select("id,nome").eq("obra_id", obraId).eq("ativo", true).order("nome"),
-      supabase.from("bim_replanejamentos").select("id,pacote_id,nova_importacao_id,decisao,pacote_novo_id,motivo,registrado_em").eq("obra_id", obraId).order("registrado_em", { ascending: false }).limit(500),
+    const [p, f, d, w, servicesResult, frontsResult, teamsResult, replansResult] = await Promise.all([
+      allRows(() => supabase.from("bim_pacotes")
+        .select("id,importacao_id,codigo,titulo,frente_id,servico_id,equipe_id,inicio,fim,quantidade_meta,unidade,estado,horas_equipe_previstas,produtividade_referencia,substituido_por")
+        .eq("obra_id", obraId).is("cancelado_em", null).order("inicio").order("id")),
+      allRows(() => supabase.from("bim_pacote_fontes").select("pacote_id,quantidade_id,valor").order("pacote_id")),
+      allRows(() => supabase.from("bim_pacote_predecessores").select("pacote_id,predecessor_id").order("pacote_id")),
+      allRows(() => supabase.from("bim_pacote_semanas")
+        .select("id,pacote_id,semana_inicio,semana_fim,quantidade_meta,compromisso_id")
+        .eq("obra_id", obraId).order("semana_inicio").order("id")),
+      allRows(() => supabase.from("servicos").select("id,nome,unidade,ativo,produtividade_referencia")
+        .eq("ativo", true).order("nome").order("id")),
+      allRows(() => supabase.from("frentes").select("id,nome")
+        .eq("obra_id", obraId).eq("ativo", true).order("nome").order("id")),
+      allRows(() => supabase.from("equipes").select("id,nome")
+        .eq("obra_id", obraId).eq("ativo", true).order("nome").order("id")),
+      allRows(() => supabase.from("bim_replanejamentos")
+        .select("id,pacote_id,nova_importacao_id,decisao,pacote_novo_id,motivo,registrado_em")
+        .eq("obra_id", obraId).order("registrado_em", { ascending: false }).order("id")),
     ]);
-    for (const result of [p,f,d,w,s,frontsResult,teamsResult,replansResult]) if (result.error) throw result.error;
-    const packageRows = (p.data || []) as Package[];
+    const packageRows = p as Package[];
     const packageIds = new Set(packageRows.map((row) => row.id));
     setPackages(packageRows);
-    setSources(((f.data || []) as Source[]).filter((row) => packageIds.has(row.pacote_id)));
-    setDependencies(((d.data || []) as Dependency[]).filter((row) => packageIds.has(row.pacote_id)));
-    setWeeks((w.data || []) as Week[]);
-    setReplans((replansResult.data || []) as Replan[]);
-    setServices((s.data || []) as Service[]);
-    setFronts((frontsResult.data || []) as Front[]);
-    setTeams((teamsResult.data || []) as Team[]);
+    setSources((f as Source[]).filter((row) => packageIds.has(row.pacote_id)));
+    setDependencies((d as Dependency[]).filter((row) => packageIds.has(row.pacote_id)));
+    setWeeks(w as Week[]);
+    setServices(servicesResult as Service[]);
+    setFronts(frontsResult as Front[]);
+    setTeams(teamsResult as Team[]);
+    setReplans(replansResult as Replan[]);
   }, [obraId]);
   useEffect(() => { void refresh().catch((cause) => setError(mensagemErro(cause))); }, [refresh]);
 
@@ -361,7 +370,6 @@ export default function BimPlanning({ obraId, accessRole, ativo, revisoes }: {
             <td>{p.substituido_por ? "Substituído" : p.estado === "aprovado" ? "Aprovado" : "Rascunho"}</td>
             <td>{p.estado === "rascunho" && <div className="row-actions">{canApprove && <button className="secondary" disabled={busy || !p.horas_equipe_previstas} onClick={() => approvePackage(p)}>Aprovar</button>}{canPlan && <button className="secondary" disabled={busy} onClick={() => discardDraft(p)}>Descartar rascunho</button>}</div>}</td>
           </tr>)}</tbody></table></div>}
-      {packages.length >= 500 && <p className="muted">Exibindo os 500 primeiros pacotes.</p>}
     </div>
     <div className="panel editor">
       <h3>Compromissos semanais do BIM</h3>
