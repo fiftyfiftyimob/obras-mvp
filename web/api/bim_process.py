@@ -74,9 +74,10 @@ def process(job):
         "concluido_em": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     })
 
-def claim(job_id=None):
+def claim(job_id=None, user_token=None):
     payload = {"p_id": job_id} if job_id else {}
-    rows = api("POST", "/rest/v1/rpc/bim_reivindicar_importacao", payload)
+    headers = {"apikey": SERVICE_KEY, "Authorization": "Bearer " + (user_token or SERVICE_KEY)}
+    rows = api("POST", "/rest/v1/rpc/bim_reivindicar_importacao", payload, headers)
     return rows[0] if rows else None
 
 def user_job(user_token, job_id):
@@ -120,7 +121,7 @@ class handler(BaseHTTPRequestHandler):
             return
         job = None
         try:
-            job = claim(requested_id)
+            job = claim(requested_id, None if is_secret else supplied)
             if not job:
                 self.respond(200, {"ok": True, "status": "empty"})
                 return
