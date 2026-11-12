@@ -39,6 +39,11 @@ import {
   isSimulationRdo,
   isSimulationCollaborator,
 } from "../lib/operacional";
+const quantityFormatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
+function displayQuantity(value: unknown) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? quantityFormatter.format(numeric) : "—";
+}
 const tabs = [
   ["resumo", "Visão geral", ChartNoAxesCombined],
   ["compromissos_semanais", "Planejamento", CalendarDays],
@@ -968,11 +973,11 @@ export function WorkManagement({ id, accessRole = "administrador" }: { id: numbe
           ),
         ],
         ["Equipe", (r) => lookup(data, "equipes", r.equipe_id)],
-        ["Meta", (r) => `${r.quantidade_meta} ${formatUnit(r.unidade)}`],
+        ["Meta", (r) => `${displayQuantity(r.quantidade_meta)} ${formatUnit(r.unidade)}`],
         [
           "Realizado",
           (r) =>
-            `${tasks.filter((t) => t.compromisso_semanal_id === r.id).reduce((n, t) => n + progress(data, t), 0)} ${formatUnit(r.unidade)}`,
+            `${displayQuantity(tasks.filter((t) => t.compromisso_semanal_id === r.id).reduce((n, t) => n + progress(data, t), 0))} ${formatUnit(r.unidade)}`,
         ],
       ],
       rdos: [
@@ -985,7 +990,7 @@ export function WorkManagement({ id, accessRole = "administrador" }: { id: numbe
         ["Frente", (r) => lookup(data, "frentes", r.frente_id)],
         ["Serviço", (r) => lookup(data, "servicos", r.servico_id)],
         ["Equipe", (r) => lookup(data, "equipes", r.equipe_id)],
-        ["Executado", (r) => `${r.quantidade_realizada} ${formatUnit(r.unidade)}`],
+        ["Executado", (r) => `${displayQuantity(r.quantidade_realizada)} ${formatUnit(r.unidade)}`],
         ["Observação", (r) => r.observacao || "—"],
       ],
     };
@@ -1338,14 +1343,14 @@ export function WorkManagement({ id, accessRole = "administrador" }: { id: numbe
                         <tr key={s.id}>
                           <td data-label="Serviço">{s.nome}</td>
                           <td data-label="Meta total">
-                            {group.reduce(
+                            {displayQuantity(group.reduce(
                               (n, t) => n + Number(t.quantidade_meta),
                               0,
-                            )}{" "}
+                            ))}{" "}
                             {formatUnit(s.unidade)}
                           </td>
                           <td data-label="Executado">
-                            {group.reduce((n, t) => n + progress(data, t), 0)}{" "}
+                            {displayQuantity(group.reduce((n, t) => n + progress(data, t), 0))}{" "}
                             {formatUnit(s.unidade)}
                           </td>
                           <td data-label="Horas previstas">
@@ -1805,7 +1810,7 @@ export function WorkManagement({ id, accessRole = "administrador" }: { id: numbe
                 </div>
                 <div className="task-metrics">
                   <span>
-                    <strong>{progress(data, t)}</strong> / {t.quantidade_meta}{" "}
+                    <strong>{displayQuantity(progress(data, t))}</strong> / {displayQuantity(t.quantidade_meta)}{" "}
                     {formatUnit(t.unidade)} executados
                   </span>
                   <span>
@@ -1896,7 +1901,7 @@ export function WorkManagement({ id, accessRole = "administrador" }: { id: numbe
                               )}
                             </small>
                             <span>
-                              Produção: {e.quantidade_realizada || 0} {formatUnit(t.unidade)}
+                              Produção: {displayQuantity(e.quantidade_realizada || 0)} {formatUnit(t.unidade)}
                               {e.motivo_impedimento
                                 ? ` · ${labels[e.motivo_impedimento]}`
                                 : ""}
@@ -2023,7 +2028,7 @@ export function WorkManagement({ id, accessRole = "administrador" }: { id: numbe
                         {lookup(data, "frentes", task.frente_id)} · {task.equipe_id
                           ? lookup(data, "equipes", task.equipe_id)
                           : lookup(data, "colaboradores", task.colaborador_id)} ·{" "}
-                        {suggested} {formatUnit(task.unidade)}
+                        {displayQuantity(suggested)} {formatUnit(task.unidade)}
                       </small>
                     </span>
                   </label>
