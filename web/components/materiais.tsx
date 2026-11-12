@@ -2,6 +2,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { supabase, mensagemErro, hoje } from "../lib/supabase";
 import Estoque from "./estoque";
+import Cotacoes from "./cotacoes";
 
 type Material = { id: number; nome: string; especificacao: string; unidade_estoque: string; unidade_compra: string; quantidade_por_embalagem: number };
 type Almoxarifado = { id: number; nome: string };
@@ -200,5 +201,6 @@ export default function Materiais({ obraId, accessRole, ativo }: { obraId: numbe
       {solicitacoes.length >= 500 && <p className="muted">Exibindo as 500 solicitações mais recentes.</p>}
     </div>
     <Estoque obraId={obraId} accessRole={accessRole} ativo={ativo} materiais={materiais} almoxarifados={almoxarifados} onChanged={refresh} />
+    <Cotacoes obraId={obraId} accessRole={accessRole} ativo={ativo} materiais={materiais} solicitacoes={solicitacoes} />
   </section>;
 }
