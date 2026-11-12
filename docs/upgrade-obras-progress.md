@@ -11,8 +11,8 @@ Este arquivo registra a sequência de 10 entregas do Obras MVP para permitir ret
 | 5 | Estoque: saldo, reserva, entrega, devolução, transferência, contagem e estorno | Integrada | PR #52 |
 | 6 | Cronograma mestre, pacotes da EAP e comparação de revisões BIM | Integrada | PR #53 |
 | 7 | Fornecedores e mapa de cotações com custo entregue e prazo | Integrada | PR #54 |
-| 8 | Pedidos e recebimentos parciais ligados ao estoque | Em validação | PR #55 |
-| 9 | Previsão de falta e indicadores de custo e abastecimento no Dashboard, com exportação | Pendente | — |
+| 8 | Pedidos e recebimentos parciais ligados ao estoque | Integrada | PR #55 |
+| 9 | Previsão de falta e indicadores de custo e abastecimento no Dashboard, com exportação | Em validação | PR #56 |
 | 10 | Homologação do piloto e conectores priorizados conforme as ferramentas reais da obra | Pendente | — |
 
 ## Critérios de retomada
@@ -25,4 +25,6 @@ Este arquivo registra a sequência de 10 entregas do Obras MVP para permitir ret
 
 - O PR #54 integrou a etapa 7: fornecedores por obra, cotações por material/quantidade e propostas com custo entregue calculado no banco. Migrações aplicadas, testes transacionais de permissões e propostas passaram; deploy de produção verificado.
 
-- A etapa 8 está no PR #55: pedido a partir da cotação escolhida, recebimentos parciais e estorno vinculados ao estoque. Migrações aplicadas e teste transacional do fluxo principal passou. Conferir build, acesso sem vínculo e limites de quantidade antes do merge.
+- O PR #55 integrou a etapa 8: pedido a partir da cotação escolhida, recebimentos parciais e estorno vinculados ao estoque. Migrações aplicadas e teste transacional do fluxo principal passou. Build READY e testes de excesso, idempotência, estorno e acesso sem vínculo passaram.
+
+- A etapa 9 está no PR #56: projeção de faltas por material/almoxarifado e data, indicadores de custo e abastecimento, exportação Excel para Power BI. Validar cálculo e build antes do merge.
