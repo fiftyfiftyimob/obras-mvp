@@ -89,14 +89,41 @@ export default function BimProject({ obraId, accessRole, ativo }: {
   }, [elementId]);
   const current = imports.find((row) => row.id === selectedId);
 
+  async function processRevision(id: string) {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) throw new Error("A sessão expirou. Entre novamente para iniciar a extração.");
+    const response = await fetch("/api/bim_process", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + data.session.access_token },
+      body: JSON.stringify({ import_id: id }),
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(result?.error || "O serviço de extração está temporariamente indisponível.");
+    setNotice(result?.status === "concluida" ? "Extração concluída." : "A extração ainda não foi iniciada por esta solicitação. Confira o estado da revisão.");
+  }
+
+  async function retryCurrent() {
+    if (!current || !canUpload || current.estado !== "pendente") return;
+    setError(""); setNotice(""); setBusy(true);
+    try {
+      await processRevision(current.id);
+    } catch (cause) {
+      setError(mensagemErro(cause));
+    } finally {
+      await refresh().catch((cause) => setError(mensagemErro(cause)));
+      setBusy(false);
+    }
+  }
+
   async function removeCurrent() {
-    if (!current || !confirm("Excluir esta revisão IFC e seus dados?")) return;
+    if (!current || !canUpload || !["aguardando_envio", "pendente", "falha"].includes(current.estado) || !confirm("Excluir esta revisão IFC e seus dados?")) return;
     setError(""); setNotice(""); setBusy(true);
     try {
       const storage = await supabase.storage.from("modelos-bim").remove([current.caminho_arquivo]);
       if (storage.error && !storage.error.message.includes("not found")) throw storage.error;
-      const result = await supabase.from("bim_importacoes").delete().eq("id", current.id);
+      const result = await supabase.from("bim_importacoes").delete().eq("id", current.id).select("id").maybeSingle();
       if (result.error) throw result.error;
+      if (!result.data) throw new Error("A revisão não pôde ser excluída. Atualize a lista e confira o estado.");
       setNotice("Revisão IFC excluída.");
       await refresh();
     } catch (cause) {
@@ -134,28 +161,9 @@ export default function BimProject({ obraId, accessRole, ativo }: {
         .update({ estado: "pendente" }).eq("id", existing.id)
         .eq("estado", "aguardando_envio").select("id").single();
       if (queued.error) throw queued.error;
-      setNotice("Arquivo enviado. Iniciando a extração…");
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (token) {
-        const processResponse = await fetch("/api/bim_process", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-          body: JSON.stringify({ import_id: existing.id }),
-        });
-        if (!processResponse.ok) {
-          let detail = "o processamento encontrou um erro temporário";
-          const responseType = processResponse.headers.get("content-type") || "";
-          if (responseType.includes("application/json")) {
-            const payload = await processResponse.json() as { error?: string };
-            if (payload.error) detail = payload.error;
-          }
-          throw new Error("A extração ficou na fila para uma nova tentativa: " + detail + ".");
-        }
-      }
-      setNotice("Arquivo enviado e extração concluída. Atualizando a conferência.");
       setSelectedId(existing.id);
       setFile(null); setRevision("");
+      await processRevision(existing.id);
       await refresh();
     } catch (cause) {
       setError(mensagemErro(cause));
@@ -182,7 +190,7 @@ export default function BimProject({ obraId, accessRole, ativo }: {
           const selected = event.target.files?.[0] || null;
           setFile(selected);
           if (selected && !revision.trim()) {
-            const suggested = selected.name.replace(/\\.ifc$/i, "").replace(/[-_]+/g, " ").trim().slice(0, 80);
+            const suggested = selected.name.replace(/\.ifc$/i, "").replace(/[-_]+/g, " ").trim().slice(0, 80);
             setRevision(suggested);
           }
         }} /></label>
@@ -203,7 +211,11 @@ export default function BimProject({ obraId, accessRole, ativo }: {
         </select></label>
         {current && <div>
           <p><strong>Arquivo:</strong> {current.nome_arquivo} · <strong>Formato:</strong> {current.schema_ifc || "Aguardando extração"}</p>
-          <p><strong>Estado:</strong> {status[current.estado] || current.estado} · <strong>Elementos:</strong> {current.total_elementos} · <strong>Pendências:</strong> {current.total_pendencias}</p>\n          <button className="secondary" disabled={busy} onClick={() => void removeCurrent()}>Excluir revisão</button>
+          <p><strong>Estado:</strong> {status[current.estado] || current.estado} · <strong>Elementos:</strong> {current.total_elementos} · <strong>Pendências:</strong> {current.total_pendencias}</p>
+          {canUpload && current.estado === "pendente" &&
+            <button className="secondary" disabled={busy} onClick={() => void retryCurrent()}>Tentar extração</button>}
+          {canUpload && ["aguardando_envio", "pendente", "falha"].includes(current.estado) &&
+            <button className="secondary" disabled={busy} onClick={() => void removeCurrent()}>Excluir revisão</button>}
           {current.erro && <p className="alert error">{current.erro}</p>}
           {current.estado === "aguardando_envio" && <p className="notice">Selecione o mesmo arquivo e revisão acima para retomar o envio.</p>}
         </div>}
