@@ -1,0 +1,28 @@
+name: IFC compatibility
+on:
+  pull_request:
+    paths:
+      - 'web/bim/**'
+      - 'web/requirements.txt'
+      - '.github/workflows/bim-ifc.yml'
+  workflow_dispatch:
+jobs:
+  extract-public-models:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r web/requirements.txt
+      # Public sample set credits and licences: https://github.com/BIMvoice/ifcsamples
+      - name: Download pinned IFC2x3, IFC4 and IFC4x3 samples
+        run: |
+          mkdir -p fixtures
+          curl --fail --location --silent --show-error 'https://raw.githubusercontent.com/BIMvoice/ifcsamples/7a7eb6bdeab3e630eeef0e923a908d0c6af07cd2/IFC2x3/Duplex-Apartment/Duplex_A_20110907.ifc' --output fixtures/duplex-2x3.ifc
+          curl --fail --location --silent --show-error 'https://raw.githubusercontent.com/BIMvoice/ifcsamples/7a7eb6bdeab3e630eeef0e923a908d0c6af07cd2/IFC4/buildingSMART-Certification-datasets/Simple-Scene/Building-Architecture.ifc' --output fixtures/architecture-4.ifc
+          curl --fail --location --silent --show-error 'https://raw.githubusercontent.com/BIMvoice/ifcsamples/7a7eb6bdeab3e630eeef0e923a908d0c6af07cd2/IFC4x3/buildingSMART-Certification-datasets/Simple-Scene/Building-Architecture.ifc' --output fixtures/architecture-4x3.ifc
+      - name: Extract and check all schemas
+        env:
+          IFC_FIXTURE_DIR: fixtures
+        run: python -m unittest discover -s web/bim -p 'test_*.py' -v
