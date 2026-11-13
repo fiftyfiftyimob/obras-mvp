@@ -1,34 +1,39 @@
 # Progresso da integração BIM e almoxarifado
 
-Este arquivo registra a sequência de 10 entregas do Obras MVP para permitir retomada sem depender do histórico do chat. Infraestrutura: GitHub, Supabase e Vercel. Não usar Render.
+Registro de retomada do Obras MVP. Infraestrutura: GitHub, Supabase e Vercel. Sem Render e sem cópia local do repositório.
+
+## Base BIM e suprimentos
 
 | Etapa | Entrega | Estado | Referência |
 | --- | --- | --- | --- |
-| 1 | Importar IFC, extrair e conferir revisões e quantitativos | Integrada | PR #48 |
-| 2 | Vincular quantitativos BIM a serviços com unidade compatível | Integrada | PR #49 |
-| 3 | Oferecer o total BIM ao planejamento semanal | Integrada | PR #50 |
-| 4 | Catálogo, almoxarifados e solicitações de materiais por frente | Integrada | PR #51 |
-| 5 | Estoque: saldo, reserva, entrega, devolução, transferência, contagem e estorno | Integrada | PR #52 |
-| 6 | Cronograma mestre, pacotes da EAP e comparação de revisões BIM | Integrada | PR #53 |
-| 7 | Fornecedores e mapa de cotações com custo entregue e prazo | Integrada | PR #54 |
-| 8 | Pedidos e recebimentos parciais ligados ao estoque | Integrada | PR #55 |
-| 9 | Previsão de falta e indicadores de custo e abastecimento no Dashboard, com exportação | Integrada | PR #56 |
-| 10 | Homologação do piloto e conectores priorizados conforme as ferramentas reais da obra | Em validação | PR #57 |
+| 1 | Importação IFC, extração e quantitativos | Integrada | PR #48 |
+| 2 | Vínculo BIM com serviços e unidades | Integrada | PR #49 |
+| 3 | Total BIM no planejamento semanal | Integrada | PR #50 |
+| 4 | Catálogo, almoxarifados e solicitações | Integrada | PR #51 |
+| 5 | Estoque, reserva e movimentações auditáveis | Integrada | PR #52 |
+| 6 | Cronograma, pacotes EAP e comparação de revisões | Integrada | PR #53 |
+| 7 | Fornecedores e cotações | Integrada | PR #54 |
+| 8 | Pedidos e recebimentos parciais | Integrada | PR #55 |
+| 9 | Previsão de falta, custo, Dashboard e exportação | Integrada | PR #56 |
+| 10 | Piloto integrado e correções de operação | Integrada | PRs #57–#60 |
 
-## Critérios de retomada
+O piloto autenticado e os resultados do fluxo de compras estão em `docs/homologacao-piloto-bim-suprimentos.md`. A etapa 10 encerra o fluxo aberto e seu piloto; a escolha de um conector proprietário foi retirada desse critério porque depende dos futuros clientes.
 
-- Após cada entrega, verificar migração Supabase, build Vercel, permissões e fluxo de operação; fazer merge somente após esses controles.
-- A obra de teste é a obra 19, Residencial Horizonte — Teste Operacional. Os testes de banco devem usar transações revertidas ou registros identificados e removidos de forma segura.
-- PR #52 integrou a etapa 5. Migrações aplicadas e deploy de produção READY. Testes transacionais cobriram saldo inicial, reserva, baixa parcial, devolução, transferência, contagem, estorno e idempotência. Um teste de conta sem acesso encontrou e corrigiu uma falha antes do merge.
-- PR #53 integrou a etapa 6. As migrações de pacotes, comparação de revisões, capacidade, decisões de replanejamento, rascunhos e propostas estão aplicadas. Testes transacionais cobriram publicação repetida, limite de quantitativo, acesso, comparação IFC, substituição preservando compromisso publicado, descarte de rascunho e edição de proposta. Build e deploy de produção READY.
-- A validação visual autenticada das etapas 4 a 6 ainda precisa ser feita com uma sessão de teste. Não pedir senha no chat; orientar login seguro quando chegar a hora. Enquanto isso, prosseguir nas entregas que podem ser verificadas por código e banco.
+## Fechamento da versão aberta para produto
 
-- O PR #54 integrou a etapa 7: fornecedores por obra, cotações por material/quantidade e propostas com custo entregue calculado no banco. Migrações aplicadas, testes transacionais de permissões e propostas passaram; deploy de produção verificado.
+| Item | Entrega | Estado | Referência |
+| --- | --- | --- | --- |
+| 1/5 | Revisão IFC conferida por responsável e extração robusta | Integrado | PRs #61 e #62 |
+| 2/5 | Composições de materiais por serviço e aprovação | Integrado | PR #63 |
+| 3/5 | Catálogos e compras em CSV | Integrado | PR #64 |
+| 4/5 | Contrato de conectores por cliente | Documentado | PR #65 |
+| 5/5 | Homologação técnica, matriz de testes e limites comerciais | Documentado | `docs/homologacao-produto-aberto-v1.md` |
 
-- O PR #55 integrou a etapa 8: pedido a partir da cotação escolhida, recebimentos parciais e estorno vinculados ao estoque. Migrações aplicadas e teste transacional do fluxo principal passou. Build READY e testes de excesso, idempotência, estorno e acesso sem vínculo passaram.
+Critério desta versão: fluxos abertos IFC/CSV, controles humanos de revisão e compras, sem dependência de fabricante de software. O limite de upload de 200 MB ainda não foi homologado nessa escala. A configuração de Auth para cadastro público, modelos reais de um cliente e adaptadores proprietários pertencem à preparação do piloto comercial, conforme a homologação.
 
-- A etapa 9 está no PR #56: projeção de faltas por material/almoxarifado e data, indicadores de custo e abastecimento, exportação Excel para Power BI. Validar cálculo e build antes do merge.
+## Retomada
 
-- O PR #56 integrou a etapa 9; build e deploy de produção READY. A etapa 10 está no PR #57 com teste integrado revertido, auditoria de segurança e relatório em `docs/homologacao-piloto-bim-suprimentos.md`. A validação visual autenticada concluiu o piloto de cotações, pedido, recebimento, estoque, previsão de falta e exportação; problemas de atualização foram corrigidos no PR #58. Faltam os nomes das ferramentas BIM/ERP para priorizar conector específico. Não marcar 10/10 antes dessa decisão.
-
-- O piloto visual deixou material, fornecedor, almoxarifado, cotação #12, pedido #6, recebimento de 80 unidades e solicitação #4 identificados como fictícios na obra 19. A previsão apresentou falta de 100 unidades em 17/11/2026; ver `docs/homologacao-piloto-bim-suprimentos.md`.
+- Obra de teste: 19, Residencial Horizonte — Teste Operacional. Testes novos devem usar transações revertidas ou registros fictícios identificados.
+- Código mais recente de produção: PR #64, deploy READY. PR #65 é documentação e não exigiu novo deploy.
+- Migrações das revisões IFC, composições e CSV estão aplicadas; o projeto Supabase foi verificado como ACTIVE_HEALTHY.
+- Para novo cliente, primeiro levantar o IFC, planilhas e sistemas em uso. Usar `docs/conectores-por-cliente.md` para decidir se precisa de adaptador específico.
