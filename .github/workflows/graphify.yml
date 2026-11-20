@@ -1,0 +1,50 @@
+name: Graphify code map
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/graphify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-graph:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Graphify
+        run: python -m pip install 'graphifyy==0.9.113'
+      - name: Extract code and SQL structure
+        run: graphify extract . --code-only --max-workers 4
+      - name: Check graph and render HTML
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('graphify-out/graph.json')
+          graph = json.loads(p.read_text(encoding='utf-8'))
+          nodes = graph.get('nodes', [])
+          edges = graph.get('edges', [])
+          if not nodes:
+              raise SystemExit('Graphify produced an empty graph')
+          print(f'Graphify: {len(nodes)} nodes, {len(edges)} edges')
+          if len(nodes) > 5000:
+              print('::warning::Large graph: HTML uses the Graphify community view.')
+          PY
+          graphify diagnose multigraph --graph graphify-out/graph.json
+          graphify export html
+      - name: Upload graph deliverables
+        uses: actions/upload-artifact@v4
+        with:
+          name: obras-graphify-code
+          path: |
+            graphify-out/graph.html
+            graphify-out/graph.json
+            graphify-out/GRAPH_REPORT.md
+          if-no-files-found: error
+          retention-days: 30
