@@ -47,33 +47,23 @@ def process(job):
         if os.path.getsize(local) != job["tamanho_bytes"]:
             raise ValueError("Tamanho do arquivo diverge do cadastro.")
         result = extract(local)
-    api("DELETE", table_path("bim_elementos", "importacao_id=eq." + job_id))
+    # Os lotes ficam invisiveis ate a finalizacao no banco confirmar tudo.
+    api("DELETE", table_path("bim_extracao_lotes", "importacao_id=eq." + job_id))
     pending = sum(len(item["pendencias"]) + sum(1 for q in item["quantidades"] if q["pendencia"])
                   for item in result["elementos"])
     for start in range(0, len(result["elementos"]), BATCH):
-        subset = result["elementos"][start:start + BATCH]
-        rows = [{
-            "importacao_id": job_id, "obra_id": job["obra_id"],
-            "global_id": item["global_id"], "classe": item["classe"], "nome": item["nome"],
-            "local": item["local"], "local_global_id": item["local_global_id"],
-            "pendencias": item["pendencias"],
-        } for item in subset]
-        created = api("POST", table_path("bim_elementos"), rows,
-                      {"Prefer": "return=representation"})
-        quantities = []
-        for item, row in zip(subset, created):
-            quantities.extend({
-                "elemento_id": row["id"], "importacao_id": job_id,
-                "obra_id": job["obra_id"], **quantity
-            } for quantity in item["quantidades"])
-        for offset in range(0, len(quantities), BATCH):
-            api("POST", table_path("bim_quantidades", ""),
-                quantities[offset:offset + BATCH], {"Prefer": "return=minimal"})
-    api("PATCH", table_path("bim_importacoes", "id=eq." + job_id), {
-        "estado": "concluida", "schema_ifc": result["schema"],
-        "total_elementos": len(result["elementos"]), "total_pendencias": pending,
-        "erro": None, "lease_ate": None,
-        "concluido_em": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        api("POST", table_path("bim_extracao_lotes"), [{
+            "importacao_id": job_id,
+            "tentativa": job["tentativas"],
+            "lote": start // BATCH,
+            "elementos": result["elementos"][start:start + BATCH],
+        }], {"Prefer": "return=minimal"})
+    api("POST", "/rest/v1/rpc/bim_finalizar_importacao", {
+        "p_id": job_id,
+        "p_tentativa": job["tentativas"],
+        "p_schema": result["schema"],
+        "p_total_elementos": len(result["elementos"]),
+        "p_total_pendencias": pending,
     })
 
 def claim(job_id=None):
@@ -128,7 +118,7 @@ class handler(BaseHTTPRequestHandler):
                 self.respond(200, {"ok": True, "id": job["id"], "status": "concluida"})
             except Exception as error:
                 attempts = int(job["tentativas"])
-                api("PATCH", table_path("bim_importacoes", "id=eq." + job["id"]), {
+                api("PATCH", table_path("bim_importacoes", "id=eq." + job["id"] + "&tentativas=eq." + str(attempts) + "&estado=eq.processando"), {
                     "estado": "pendente" if attempts < 3 else "falha",
                     "erro": str(error)[:500], "lease_ate": None,
                     "processar_apos": time.strftime(
