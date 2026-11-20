@@ -3,6 +3,13 @@ on:
   pull_request:
     paths:
       - '.github/workflows/graphify.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'web/**'
+      - 'supabase/migrations/**'
+      - '.github/workflows/graphify.yml'
   workflow_dispatch:
 
 permissions:
